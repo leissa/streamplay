@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "streamplay"
-version = "1.1.0"
+version = "1.2.0"
 description = "Control daemon for self-hosted music libraries with MPRIS2 support"
 requires-python = ">=3.11"
 dependencies = [
