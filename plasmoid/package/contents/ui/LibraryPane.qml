@@ -339,7 +339,8 @@ Item {
                 onTextChanged: searchDebounce.restart()
                 Keys.onDownPressed: list.enter()
                 Keys.onPressed: event => {
-                    if (event.modifiers === Qt.ControlModifier && event.key === Qt.Key_N) {
+                    if (event.modifiers === Qt.ControlModifier
+                        && (event.key === Qt.Key_N || event.key === Qt.Key_J)) {
                         list.enter();
                         event.accepted = true;
                     }
@@ -538,10 +539,10 @@ Item {
                     if (event.modifiers !== Qt.ControlModifier) {
                         return;
                     }
-                    if (event.key === Qt.Key_N) {
+                    if (event.key === Qt.Key_N || event.key === Qt.Key_J) {
                         down();
                         event.accepted = true;
-                    } else if (event.key === Qt.Key_P) {
+                    } else if (event.key === Qt.Key_P || event.key === Qt.Key_K) {
                         up();
                         event.accepted = true;
                     }

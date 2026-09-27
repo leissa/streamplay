@@ -34,6 +34,18 @@ Browse everything as one library, build a single queue from all of it, and choos
 [*][b]Passwords stay in your keyring[/b] (KWallet, GNOME Keyring or KeePassXC via the Secret Service) and never go into a config file.
 [/list]
 
+[b]Keyboard[/b]
+[list]
+[*][b]Ctrl+1 / 2 / 3[/b] — Playing / Queue / Library tab
+[*][b]Ctrl+H / Ctrl+L[/b] — previous / next tab, also while typing in the search field
+[*][b]Ctrl+F[/b] — search the library, from any tab
+[*][b]↓ / ↑[/b], [b]Ctrl+N / P[/b], [b]Ctrl+J / K[/b] — move through the library; from the search field into the results and back
+[*][b]Enter[/b] — open the artist, album, genre or playlist; play a track
+[*][b]Ctrl+Enter[/b] — play now, replacing the queue
+[*][b]Shift+Enter[/b] — add to the queue
+[*][b]Backspace[/b] — back
+[/list]
+
 [b]How it works: the background service[/b]
 A Plasma widget cannot play audio or register as a media player by itself, so Streamplay comes in two parts. The widget you see is only the interface. A small Python service does the playing, and it is [b]bundled inside this download[/b], so there is nothing else to fetch.
 

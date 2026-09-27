@@ -35,14 +35,26 @@ Item {
             PlasmaComponents.TabButton {
                 icon.name: "media-playback-start"
                 text: i18nc("@title:tab", "Playing")
+
+                PlasmaComponents.ToolTip.text: i18nc("@info:tooltip tab and its keyboard shortcut", "%1 (%2)", text, i18nc("@info:shortcut", "Ctrl+1"))
+                PlasmaComponents.ToolTip.visible: hovered
+                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
             }
             PlasmaComponents.TabButton {
                 icon.name: "view-media-playlist"
                 text: i18nc("@title:tab queue of upcoming tracks", "Queue")
+
+                PlasmaComponents.ToolTip.text: i18nc("@info:tooltip tab and its keyboard shortcut", "%1 (%2)", text, i18nc("@info:shortcut", "Ctrl+2"))
+                PlasmaComponents.ToolTip.visible: hovered
+                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
             }
             PlasmaComponents.TabButton {
                 icon.name: "view-media-album-cover"
                 text: i18nc("@title:tab", "Library")
+
+                PlasmaComponents.ToolTip.text: i18nc("@info:tooltip tab and its keyboard shortcut", "%1 (%2)", text, i18nc("@info:shortcut", "Ctrl+3"))
+                PlasmaComponents.ToolTip.visible: hovered
+                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
             }
         }
 
@@ -54,6 +66,27 @@ Item {
             NowPlayingPane {}
             QueuePane {}
             LibraryPane { id: library }
+        }
+
+        Shortcut {
+            sequence: "Ctrl+H"
+            onActivated: tabs.currentIndex = Math.max(0, tabs.currentIndex - 1)
+        }
+        Shortcut {
+            sequence: "Ctrl+L"
+            onActivated: tabs.currentIndex = Math.min(tabs.count - 1, tabs.currentIndex + 1)
+        }
+        Shortcut {
+            sequence: "Ctrl+1"
+            onActivated: tabs.currentIndex = 0
+        }
+        Shortcut {
+            sequence: "Ctrl+2"
+            onActivated: tabs.currentIndex = 1
+        }
+        Shortcut {
+            sequence: "Ctrl+3"
+            onActivated: tabs.currentIndex = 2
         }
 
         // The search field's own Ctrl+F is live only while it is visible; both at once would be ambiguous.

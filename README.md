@@ -30,6 +30,21 @@ the media keys and the lock screen all control it.
 - **KDE integration.** MPRIS2 means media keys, Now Playing in the system tray,
   and the volume OSD all work without any extra setup.
 
+## Keyboard
+
+With the popup open:
+
+| Key | Action |
+| --- | --- |
+| <kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> | Playing / Queue / Library tab |
+| <kbd>Ctrl</kbd>+<kbd>H</kbd> / <kbd>Ctrl</kbd>+<kbd>L</kbd> | previous / next tab, also while typing in the search field |
+| <kbd>Ctrl</kbd>+<kbd>F</kbd> | search the library, from any tab |
+| <kbd>↓</kbd> / <kbd>↑</kbd>, <kbd>Ctrl</kbd>+<kbd>N</kbd> / <kbd>P</kbd>, <kbd>Ctrl</kbd>+<kbd>J</kbd> / <kbd>K</kbd> | move through the library; from the search field into the results and back |
+| <kbd>Enter</kbd> | open the artist, album, genre or playlist; play a track |
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | play now, replacing the queue |
+| <kbd>Shift</kbd>+<kbd>Enter</kbd> | add to the queue |
+| <kbd>Backspace</kbd> | back |
+
 ## How it is put together
 
 MPRIS and audio playback cannot be done from QML alone, so the work is split in
