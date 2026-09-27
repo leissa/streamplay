@@ -102,6 +102,10 @@ Item {
         }
     }
 
+    function home() {
+        replaceRoot(stack[0]);
+    }
+
     function replaceRoot(entry) {
         stack = [entry];
         load();
@@ -296,6 +300,17 @@ Item {
                 onClicked: pane.pop()
             }
 
+            PlasmaComponents.ToolButton {
+                icon.name: "go-home"
+                display: PlasmaComponents.AbstractButton.IconOnly
+                visible: pane.stack.length > 2
+                text: i18n("Back to the start")
+                onClicked: {
+                    searchField.text = "";
+                    pane.home();
+                }
+            }
+
             PlasmaExtras.SearchField {
                 id: searchField
                 Layout.fillWidth: true
@@ -309,20 +324,15 @@ Item {
                     onTriggered: {
                         const query = searchField.text.trim();
                         if (query.length === 0) {
-                            if (pane.here.mode === "search") {
-                                pane.pop();
+                            if (pane.stack.some(entry => entry.mode === "search")) {
+                                pane.home();
                             }
                             return;
                         }
-                        if (pane.here.mode === "search") {
-                            pane.stack = pane.stack.slice(0, pane.stack.length - 1)
-                                             .concat([{ mode: "search", query: query,
-                                                        title: query }]);
-                            pane.load();
-                        } else {
-                            pane.push({ mode: "search", query: query,
-                                        title: query });
-                        }
+                        // A search replaces the previous one and whatever was opened from it.
+                        pane.stack = [pane.stack[0], { mode: "search", query: query,
+                                                       title: query }];
+                        pane.load();
                     }
                 }
             }
