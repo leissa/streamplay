@@ -1,8 +1,19 @@
 Summary:
-Your self-hosted music (Subsonic, Jellyfin, Emby, Plex, Kodi, MPD, Lyrion) in one queue, right in your panel.
+Your self-hosted music (Subsonic, Jellyfin, Emby, Plex, Kodi, MPD, Lyrion) in one queue in your panel, playing here or on UPnP/DLNA.
 
 Description:
-[b]Streamplay[/b] brings the music on your own servers into a Plasma panel: [b]Subsonic[/b]-compatible servers (Airsonic, Ampache, Funkwhale, Gonic, LMS, Navidrome), [b]Jellyfin[/b], [b]Emby[/b], [b]Plex[/b], [b]Kodi[/b], [b]MPD[/b] and [b]Lyrion Music Server[/b], several at once. Browse everything as one library, build a single queue from all of it, and choose where it plays: on this computer, on Kodi, MPD or a Squeezebox player, or on a UPnP/DLNA speaker, TV or receiver.
+[b]Streamplay[/b] brings the music on your own servers — several of them at the same time — into a Plasma panel:
+[list]
+[*][b]Subsonic[/b]-compatible servers (Airsonic, Ampache, Funkwhale, Gonic, LMS, Navidrome)
+[*][b]Jellyfin[/b]
+[*][b]Emby[/b]
+[*][b]Plex[/b]
+[*][b]Kodi[/b]
+[*][b]MPD[/b]
+[*][b]Lyrion Music Server[/b]
+[/list]
+
+Browse everything as one library, build a single queue from all of it, and choose where it plays: on this computer, on Kodi, MPD or a Squeezebox player, or on a UPnP/DLNA speaker, TV or receiver.
 
 [b]Features[/b]
 [list]
