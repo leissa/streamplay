@@ -36,10 +36,14 @@ KCM.SimpleKCM {
           placeholder: "http://192.168.1.20:32400" },
         { type: "subsonic", label: i18n("Subsonic"), address: "url", login: true,
           tls: true, placeholder: "https://music.example.org" },
-        // Last, as the only entry that is not a library.
         { type: "upnp", label: i18n("UPnP / DLNA players"), address: "", login: false,
           tls: false },
     ]
+
+    function addServer(type) {
+        page.draft = page.blankProfile(type);
+        page.status = "";
+    }
 
     function serverType(type) {
         return page.serverTypes.find(t => t.type === type) || {};
@@ -253,17 +257,22 @@ KCM.SimpleKCM {
                         id: addMenu
 
                         Repeater {
-                            model: page.serverTypes
+                            model: page.serverTypes.filter(t => t.type !== "upnp")
 
                             QQC2.MenuItem {
                                 required property var modelData
                                 text: modelData.label
                                 icon.name: Fmt.serverIcon(modelData.type)
-                                onTriggered: {
-                                    page.draft = page.blankProfile(modelData.type);
-                                    page.status = "";
-                                }
+                                onTriggered: page.addServer(modelData.type)
                             }
+                        }
+
+                        QQC2.MenuSeparator {}
+
+                        QQC2.MenuItem {
+                            text: page.serverType("upnp").label
+                            icon.name: Fmt.serverIcon("upnp")
+                            onTriggered: page.addServer("upnp")
                         }
                     }
                 }
