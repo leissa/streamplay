@@ -10,15 +10,7 @@ Description:
 [*][b]Lyrion Music Server[/b]
 [*][b]MPD[/b]
 [*][b]Plex[/b]
-[*][b]Subsonic[/b]-compatible servers:
-  [list]
-  [*][b]Airsonic[/b]
-  [*][b]Ampache[/b]
-  [*][b]Funkwhale[/b]
-  [*][b]Gonic[/b]
-  [*][b]LMS[/b]
-  [*][b]Navidrome[/b]
-  [/list]
+[*][b]Subsonic[/b]-compatible servers: [b]Airsonic[/b], [b]Ampache[/b], [b]Funkwhale[/b], [b]Gonic[/b], [b]LMS[/b], [b]Navidrome[/b]
 [/list]
 
 Browse everything as one library, build a single queue from all of it, and choose where it plays:
