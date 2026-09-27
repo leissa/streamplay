@@ -15,10 +15,10 @@ Description:
 
 Browse everything as one library, build a single queue from all of it, and choose where it plays:
 [list]
+[*][b]This computer[/b]
 [*][b]Kodi[/b]
 [*][b]Lyrion[/b] players (Squeezebox and compatible)
 [*][b]MPD[/b]
-[*][b]This computer[/b]
 [*][b]UPnP/DLNA[/b] speakers, TVs and receivers
 [/list]
 
