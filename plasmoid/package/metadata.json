@@ -14,7 +14,7 @@
         "Id": "io.github.leissa.streamplay",
         "License": "GPL-3.0-or-later",
         "Name": "Streamplay",
-        "Version": "1.2.0",
+        "Version": "1.3.0",
         "Website": "https://github.com/leissa/streamplay"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

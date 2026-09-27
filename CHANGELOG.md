@@ -4,6 +4,26 @@ All notable changes to Streamplay. Each version is tagged and
 [released on GitHub](https://github.com/leissa/streamplay/releases) with a
 `.plasmoid` package attached.
 
+## [1.3.0](https://github.com/leissa/streamplay/releases/tag/v1.3) — 2026-09-27
+
+### Added
+
+- The widget can be driven from the keyboard. <kbd>Ctrl</kbd>+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd>
+  switch tabs and <kbd>Ctrl</kbd>+<kbd>H</kbd>/<kbd>L</kbd> step between them.
+  <kbd>Ctrl</kbd>+<kbd>F</kbd> jumps to the library search from any tab.
+  <kbd>↓</kbd>/<kbd>↑</kbd>, <kbd>Ctrl</kbd>+<kbd>N</kbd>/<kbd>P</kbd> and
+  <kbd>Ctrl</kbd>+<kbd>J</kbd>/<kbd>K</kbd> move from the search field into the
+  results and through the library. <kbd>Enter</kbd> opens or plays,
+  <kbd>Ctrl</kbd>+<kbd>Enter</kbd> plays now, <kbd>Shift</kbd>+<kbd>Enter</kbd>
+  queues and <kbd>Backspace</kbd> goes back. The README lists them all.
+- Tooltips on the tabs, the *Back* button and the row actions name their shortcuts.
+- A *Back to the start* button once you are more than one level deep in the library.
+
+### Changed
+
+- A new search replaces the previous one and everything opened from it, rather
+  than piling up on the back stack. Clearing the field returns to the start.
+
 ## [1.2.0](https://github.com/leissa/streamplay/releases/tag/v1.2) — 2026-09-27
 
 ### Added
