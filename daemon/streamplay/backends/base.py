@@ -5,10 +5,16 @@ a library you browse, a *sink* is somewhere audio comes out.
 from __future__ import annotations
 
 import abc
+import asyncio
+import contextlib
+import logging
+import time
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Iterator
 
 from ..models import Album, Artist, Track
+
+log = logging.getLogger(__name__)
 
 REPEAT_MODES = ("none", "all", "one")
 
@@ -42,6 +48,8 @@ class Backend(abc.ABC):
     kind: str = ""
     #: False for a service that is only somewhere to play, whose library calls return nothing.
     has_library: bool = True
+    #: Whether its stream URLs are web streams any output can open, which MPD's ``file://`` are not.
+    web_streams: bool = True
 
     def __init__(self, profile: dict[str, Any]) -> None:
         self.profile = profile
@@ -68,21 +76,21 @@ class Backend(abc.ABC):
         if self._on_sinks_changed is not None:
             self._on_sinks_changed()
 
-    @abc.abstractmethod
-    async def artists(self) -> list[Artist]: ...
+    async def artists(self) -> list[Artist]:
+        return []
 
-    @abc.abstractmethod
-    async def artist_albums(self, artist_id: str) -> list[Album]: ...
+    async def artist_albums(self, artist_id: str) -> list[Album]:
+        return []
 
-    @abc.abstractmethod
     async def albums(self, sort: str = "alphabetical", offset: int = 0,
-                     limit: int = 100) -> list[Album]: ...
+                     limit: int = 100) -> list[Album]:
+        return []
 
-    @abc.abstractmethod
-    async def album_tracks(self, album_id: str) -> list[Track]: ...
+    async def album_tracks(self, album_id: str) -> list[Track]:
+        return []
 
-    @abc.abstractmethod
-    async def search(self, query: str, limit: int = 40) -> dict[str, list]: ...
+    async def search(self, query: str, limit: int = 40) -> dict[str, list]:
+        return {"artists": [], "albums": [], "tracks": []}
 
     async def genres(self) -> list[str]:
         return []
@@ -100,9 +108,9 @@ class Backend(abc.ABC):
         return []
 
 
-    @abc.abstractmethod
     async def stream_target(self, track: Track) -> StreamTarget:
         """Work out how the given track can actually be played."""
+        raise BackendError(f"{self.name} has no music of its own")
 
     def cover_request(self, cover_id: str, size: int) -> tuple[str, dict, dict] | None:
         """``(url, params, headers)`` to fetch cover art, or None if unsupported."""
@@ -144,6 +152,8 @@ class Sink(abc.ABC):
     name: str = "Sink"
     #: Profile id this output belongs to, so the hub can drop both together.
     source: str = ""
+    #: Plays other services' tracks only as web streams, so not MPD's.
+    web_streams_only: bool = False
 
     def __init__(self) -> None:
         self.state = SinkState()
@@ -198,3 +208,96 @@ class Sink(abc.ABC):
 
     def capabilities(self) -> dict[str, bool]:
         return {"seek": True, "volume": True}
+
+
+class PolledSink(Sink):
+    """An output polled for its state, whose service reports a bare stop for eof and a user's stop alike.
+    """
+
+    POLL_INTERVAL = 1.0
+    #: How far short of the end a stop still counts as eof.
+    EOF_SLACK = 1.0
+
+    def __init__(self) -> None:
+        super().__init__()
+        #: Set while a play/stop is halfway through, when the service passes through stop.
+        self._changing = False
+        #: When :attr:`state.position` was last read; see :meth:`_near_end`.
+        self._position_at = 0.0
+        self._poll_task: asyncio.Task | None = None
+
+    def _start_polling(self) -> None:
+        self._poll_task = asyncio.create_task(self._poll_loop(), name=f"poll-{self.id}")
+
+    async def close(self) -> None:
+        if self._poll_task:
+            self._poll_task.cancel()
+            self._poll_task = None
+
+    def _poll_interval(self) -> float:
+        return self.POLL_INTERVAL
+
+    def _should_poll(self) -> bool:
+        return self.state.status == "playing"
+
+    async def _poll_loop(self) -> None:
+        while True:
+            try:
+                await asyncio.sleep(self._poll_interval())
+                if self._should_poll():
+                    await self._sync()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log.debug("%s poll: %s", self.name, exc)
+
+    @abc.abstractmethod
+    async def _sync(self) -> None:
+        """Read the service's state into :attr:`state`."""
+
+    @contextlib.contextmanager
+    def _transition(self) -> Iterator[None]:
+        self._changing = True
+        try:
+            yield
+        finally:
+            self._changing = False
+
+    def _note_position(self, position: float) -> None:
+        """Record where playback is, and when we learned it."""
+        self.state.position = position
+        self._position_at = time.monotonic()
+
+    def _near_end(self) -> bool:
+        """Was the track about to finish when it stopped?
+
+        Position is the only evidence, carried forward because a short track can start and end between polls.
+        """
+        if self.state.duration <= 0:
+            return True
+        position = self.state.position
+        if self.state.status == "playing":
+            position += max(0.0, time.monotonic() - self._position_at)
+        # Never let the slack swallow a whole short track.
+        slack = min(self.EOF_SLACK, self.state.duration / 2)
+        return position >= self.state.duration - slack
+
+    async def _started(self, track: Track) -> None:
+        self.state.status = "playing"
+        self._note_position(0.0)
+        self.state.duration = track.duration
+        self.state.error = None
+        self._changed()
+        await self._sync()
+
+    async def _stop_with(self, command: Awaitable[Any]) -> None:
+        """Stop the service by ``command``, which must not count as a user's stop."""
+        with self._transition():
+            try:
+                await command
+            except BackendError as exc:
+                log.debug("%s stop: %s", self.name, exc)
+        self.state.status = "stopped"
+        self.state.buffering = False
+        self._note_position(0.0)
+        self._changed()

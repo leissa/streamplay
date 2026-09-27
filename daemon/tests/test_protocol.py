@@ -173,6 +173,15 @@ async def test_outputs(hub: Hub) -> None:
     check("an output that turns up is started and offered",
           attic.started and hub.sinks.get(attic.id) is attic)
 
+    alpha, track = hub.sources["alpha"], Track(id="1", title="One", source="alpha")
+    attic.web_streams_only = True
+    check("an output for web streams takes a library that serves them",
+          hub.unavailable(track, attic) is None)
+    alpha.web_streams = False
+    check("an output for web streams refuses local files",
+          hub.unavailable(track, attic) == "attic cannot play music from Alpha")
+    del alpha.web_streams
+
     hub.config.settings["output"] = "rooms:rooms:study"
     rooms.find("attic", "study")
     await asyncio.sleep(0.1)

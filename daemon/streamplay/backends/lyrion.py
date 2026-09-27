@@ -5,17 +5,15 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import itertools
 import logging
-import time
 from typing import Any
 from urllib.parse import quote
 
 import requests
 
 from ..models import Album, Artist, Track
-from .base import Backend, BackendError, Sink, StreamTarget
+from .base import Backend, BackendError, PolledSink, Sink, StreamTarget
 
 log = logging.getLogger(__name__)
 
@@ -35,9 +33,6 @@ TRACK_TAGS = "tags:acdegilstyJ"
 PAGE = 10_000
 
 PLAYER_POLL = 10.0
-
-#: A player reports elapsed time only roughly, so allow for it when judging eof.
-EOF_SLACK = 2.0
 
 
 def _int(value: Any) -> int | None:
@@ -120,6 +115,10 @@ class LyrionBackend(Backend):
 
     def sinks(self) -> list[Sink]:
         return list(self._players.values())
+
+    @property
+    def http_session(self) -> requests.Session:
+        return self._session
 
     async def _refresh_players(self) -> bool:
         """Follow the connected players; True if the set of outputs changed."""
@@ -262,18 +261,16 @@ class LyrionBackend(Backend):
 
     def cover_request(self, cover_id: str, size: int) -> tuple[str, dict, dict] | None:
         name = f"cover_{size}x{size}_o" if size else "cover"
-        headers = {}
-        if self.username:
-            token = base64.b64encode(f"{self.username}:{self.password}".encode()).decode()
-            headers["Authorization"] = f"Basic {token}"
-        return f"{self.origin}/music/{quote(cover_id)}/{name}", {}, headers
+        return f"{self.origin}/music/{quote(cover_id)}/{name}", {}, {}
 
 
-class LyrionSink(Sink):
+class LyrionSink(PolledSink):
     """Plays one track at a time on a Lyrion player, replacing its playlist."""
 
-    POLL_INTERVAL = 1.0
     IDLE_POLL_INTERVAL = 3.0
+    #: A player reports elapsed time only roughly.
+    EOF_SLACK = 2.0
+    web_streams_only = True
 
     def __init__(self, backend: LyrionBackend, player_id: str, name: str) -> None:
         super().__init__()
@@ -282,36 +279,21 @@ class LyrionSink(Sink):
         self.source = backend.source
         self.id = f"lyrion:{backend.source}:{player_id}"
         self.name = name
-        #: Set while a play/stop is halfway through, when the player passes through ``stop``.
-        self._changing = False
         self._has_mixer = True
-        self._position_at = 0.0
-        self._poll_task: asyncio.Task | None = None
 
     async def call(self, *command: Any) -> dict[str, Any]:
         return await self.backend.call(*command, player=self.player_id)
 
     async def start(self) -> None:
         await self._sync()
-        self._poll_task = asyncio.create_task(
-            self._poll_loop(), name=f"lyrion-poll-{self.player_id}")
+        self._start_polling()
 
-    async def close(self) -> None:
-        if self._poll_task:
-            self._poll_task.cancel()
-            self._poll_task = None
+    def _poll_interval(self) -> float:
+        return (self.POLL_INTERVAL if self.state.status == "playing"
+                else self.IDLE_POLL_INTERVAL)
 
-
-    async def _poll_loop(self) -> None:
-        while True:
-            try:
-                await asyncio.sleep(self.POLL_INTERVAL if self.state.status == "playing"
-                                    else self.IDLE_POLL_INTERVAL)
-                await self._sync()
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                log.debug("%s poll: %s", self.name, exc)
+    def _should_poll(self) -> bool:
+        return True
 
     async def _sync(self) -> None:
         try:
@@ -346,23 +328,6 @@ class LyrionSink(Sink):
                 return
         self._changed()
 
-    def _note_position(self, position: float) -> None:
-        self.state.position = position
-        self._position_at = time.monotonic()
-
-    def _near_end(self) -> bool:
-        """Was the track about to finish when it stopped, carried forward between polls?"""
-        if self.state.duration <= 0:
-            return True
-        position = self.state.position
-        if self.state.status == "playing":
-            position += max(0.0, time.monotonic() - self._position_at)
-        slack = min(EOF_SLACK, self.state.duration / 2)
-        return position >= self.state.duration - slack
-
-
-    def plays(self, track: Track) -> bool:
-        return track.source == self.backend.source or track.backend != "mpd"
 
     def _command_for(self, target: StreamTarget, track: Track) -> list[Any]:
         if target.native and target.source == self.backend.source:
@@ -373,21 +338,13 @@ class LyrionSink(Sink):
 
     async def play(self, target: StreamTarget, track: Track) -> None:
         command = self._command_for(target, track)
-        self._changing = True
-        try:
+        with self._transition():
             await self.call("power", 1)
             await self.call("playlist", "repeat", 0)
             await self.call("playlist", "shuffle", 0)
             await self.call(*command)
             await self.call("play")
-        finally:
-            self._changing = False
-        self.state.status = "playing"
-        self._note_position(0.0)
-        self.state.duration = track.duration
-        self.state.error = None
-        self._changed()
-        await self._sync()
+        await self._started(track)
 
     async def resume(self) -> None:
         await self.call("pause", 0)
@@ -400,16 +357,7 @@ class LyrionSink(Sink):
         await self._sync()
 
     async def stop(self) -> None:
-        self._changing = True
-        try:
-            await self.call("stop")
-        except BackendError as exc:
-            log.debug("%s stop: %s", self.name, exc)
-        finally:
-            self._changing = False
-        self.state.status = "stopped"
-        self._note_position(0.0)
-        self._changed()
+        await self._stop_with(self.call("stop"))
 
     async def seek(self, position: float) -> None:
         position = max(0.0, position)

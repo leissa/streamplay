@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import posixpath
 import socket
 import time
 from dataclasses import dataclass
@@ -15,8 +16,8 @@ from xml.sax.saxutils import escape, quoteattr
 
 import requests
 
-from ..models import Album, Artist, Track
-from .base import Backend, BackendError, Sink, StreamTarget
+from ..models import Track
+from .base import Backend, BackendError, PolledSink, Sink, StreamTarget
 
 log = logging.getLogger(__name__)
 
@@ -30,7 +31,6 @@ REDISCOVER_INTERVAL = 60.0
 #: Rounds a known renderer may miss before it is dropped, so one lost packet does not cut playback.
 MISSES_BEFORE_DROP = 2
 
-EOF_SLACK = 2.0
 #: A renderer may sit in STOPPED for a moment after Play before it moves on.
 START_GRACE = 8.0
 
@@ -226,7 +226,7 @@ class UpnpBackend(Backend):
 
 
     async def connect(self) -> None:
-        await self.refresh()
+        # Renderers found by the first round are reported through sinks_changed.
         self._task = asyncio.create_task(self._rediscover_loop(),
                                          name=f"upnp-discover-{self.source}")
 
@@ -238,13 +238,13 @@ class UpnpBackend(Backend):
 
     async def _rediscover_loop(self) -> None:
         while True:
-            await asyncio.sleep(REDISCOVER_INTERVAL)
             try:
                 await self.refresh()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 log.debug("%s discovery: %s", self.name, exc)
+            await asyncio.sleep(REDISCOVER_INTERVAL)
 
     async def refresh(self) -> None:
         """Search the network again and reconcile the renderers with what answered."""
@@ -253,13 +253,15 @@ class UpnpBackend(Backend):
         except OSError as exc:
             log.info("%s: SSDP search failed: %s", self.name, exc)
             found = set()
-        known = {sink.renderer.location for sink in self._sinks.values()}
-        locations = sorted(found | set(self.configured) | known)
+        known = {sink.renderer.location: sink for sink in self._sinks.values()}
+        # A known renderer answering the search is present; the rest must answer a description fetch.
+        answered = {known[loc].renderer.udn for loc in found & known.keys()}
+        locations = sorted((found | set(self.configured) | known.keys())
+                           - (found & known.keys()))
         described = await asyncio.gather(
             *(asyncio.to_thread(self._describe_sync, loc) for loc in locations))
 
         changed = False
-        answered: set[str] = set()
         for renderer in described:
             if renderer is None or renderer.udn in answered:
                 continue
@@ -287,30 +289,11 @@ class UpnpBackend(Backend):
         return list(self._sinks.values())
 
 
-    async def artists(self) -> list[Artist]:
-        return []
-
-    async def artist_albums(self, artist_id: str) -> list[Album]:
-        return []
-
-    async def albums(self, sort: str = "alphabetical", offset: int = 0,
-                     limit: int = 100) -> list[Album]:
-        return []
-
-    async def album_tracks(self, album_id: str) -> list[Track]:
-        return []
-
-    async def search(self, query: str, limit: int = 40) -> dict[str, list]:
-        return {"artists": [], "albums": [], "tracks": []}
-
-    async def stream_target(self, track: Track) -> StreamTarget:
-        raise BackendError(f"{self.name} has no music of its own")
-
-
-class UpnpSink(Sink):
+class UpnpSink(PolledSink):
     """Plays one track at a time on a renderer through AVTransport."""
 
-    POLL_INTERVAL = 1.0
+    EOF_SLACK = 2.0
+    web_streams_only = True
 
     def __init__(self, backend: UpnpBackend, renderer: Renderer) -> None:
         super().__init__()
@@ -319,13 +302,9 @@ class UpnpSink(Sink):
         self.source = backend.source
         self.id = f"upnp:{backend.source}:{renderer.udn}"
         self.name = renderer.name
-        #: Set while we stop or replace the track, when the renderer passes through STOPPED.
-        self._changing = False
         #: Whether the renderer has reported PLAYING since our last play.
         self._seen_playing = False
         self._played_at = 0.0
-        self._position_at = 0.0
-        self._poll_task: asyncio.Task | None = None
 
     async def _av(self, action: str, *args: tuple[str, str]) -> dict[str, str]:
         return await self.backend.soap(self.renderer.av_url, self.renderer.av_type,
@@ -343,30 +322,15 @@ class UpnpSink(Sink):
                 self.state.volume = max(0.0, min(1.0, int(reply.get("CurrentVolume") or 0) / 100))
             except (BackendError, ValueError) as exc:
                 log.debug("%s volume: %s", self.name, exc)
-        self._poll_task = asyncio.create_task(self._poll_loop(),
-                                              name=f"upnp-poll-{self.renderer.udn}")
+        self._start_polling()
 
-    async def close(self) -> None:
-        if self._poll_task:
-            self._poll_task.cancel()
-            self._poll_task = None
-
-
-    async def _poll_loop(self) -> None:
-        while True:
-            try:
-                await asyncio.sleep(self.POLL_INTERVAL)
-                if self.state.status != "stopped":
-                    await self._sync()
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                log.debug("%s poll: %s", self.name, exc)
+    def _should_poll(self) -> bool:
+        return self.state.status != "stopped"
 
     async def _sync(self) -> None:
         try:
-            transport = await self._av("GetTransportInfo")
-            position = await self._av("GetPositionInfo")
+            transport, position = await asyncio.gather(
+                self._av("GetTransportInfo"), self._av("GetPositionInfo"))
         except BackendError as exc:
             self.state.error = str(exc)
             self._changed()
@@ -411,29 +375,14 @@ class UpnpSink(Sink):
             # Otherwise someone stopped the renderer from its own remote.
         self._changed()
 
-    def _note_position(self, position: float) -> None:
-        self.state.position = position
-        self._position_at = time.monotonic()
-
-    def _near_end(self) -> bool:
-        if self.state.duration <= 0:
-            return True
-        position = self.state.position
-        if self.state.status == "playing":
-            position += max(0.0, time.monotonic() - self._position_at)
-        slack = min(EOF_SLACK, self.state.duration / 2)
-        return position >= self.state.duration - slack
-
-
-    def plays(self, track: Track) -> bool:
-        return track.backend != "mpd"
 
     def _mime(self, url: str) -> str:
         parts = urlsplit(url)
-        ext = parts.path.rsplit(".", 1)[-1].lower() if "." in parts.path.rsplit("/", 1)[-1] else ""
+        ext = posixpath.splitext(parts.path)[1][1:].lower()
         fmt = (parse_qs(parts.query).get("format") or [""])[0].lower()
-        if ext in MIME_TYPES or fmt in MIME_TYPES:
-            return MIME_TYPES.get(ext) or MIME_TYPES[fmt]
+        mime = MIME_TYPES.get(ext) or MIME_TYPES.get(fmt)
+        if mime:
+            return mime
         try:
             with self.backend.session.get(url, stream=True, timeout=(3, 5)) as resp:
                 kind = resp.headers.get("Content-Type", "").split(";")[0].strip()
@@ -467,8 +416,7 @@ class UpnpSink(Sink):
             raise BackendError(f"{self.name} can only play web streams")
         mime = await asyncio.to_thread(self._mime, url)
 
-        self._changing = True
-        try:
+        with self._transition():
             if self.state.status != "stopped":
                 try:
                     await self._av("Stop")
@@ -477,17 +425,10 @@ class UpnpSink(Sink):
             await self._av("SetAVTransportURI", ("CurrentURI", url),
                            ("CurrentURIMetaData", self._didl(track, url, mime)))
             await self._av("Play", ("Speed", "1"))
-        finally:
-            self._changing = False
         self._seen_playing = False
         self._played_at = time.monotonic()
-        self.state.status = "playing"
         self.state.buffering = True
-        self._note_position(0.0)
-        self.state.duration = track.duration
-        self.state.error = None
-        self._changed()
-        await self._sync()
+        await self._started(track)
 
     async def resume(self) -> None:
         await self._av("Play", ("Speed", "1"))
@@ -500,17 +441,7 @@ class UpnpSink(Sink):
         await self._sync()
 
     async def stop(self) -> None:
-        self._changing = True
-        try:
-            await self._av("Stop")
-        except BackendError as exc:
-            log.debug("%s stop: %s", self.name, exc)
-        finally:
-            self._changing = False
-        self.state.status = "stopped"
-        self.state.buffering = False
-        self._note_position(0.0)
-        self._changed()
+        await self._stop_with(self._av("Stop"))
 
     async def seek(self, position: float) -> None:
         try:

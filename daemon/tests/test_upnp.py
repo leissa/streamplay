@@ -156,6 +156,10 @@ async def main() -> None:
     backend.watch_sinks(lambda: announced.append(len(backend.sinks())))
     try:
         await backend.connect()
+        for _ in range(50):
+            if backend.sinks():
+                break
+            await asyncio.sleep(0.05)
         sinks = backend.sinks()
         check("the configured renderer is found", len(sinks) == 1 and announced == [1])
         sink = sinks[0]
@@ -225,9 +229,6 @@ async def main() -> None:
             check("a local file is refused", False)
         except BackendError:
             check("a local file is refused", True)
-        check("MPD tracks are not offered to a renderer",
-              not sink.plays(Track(id="x", title="x", backend="mpd"))
-              and sink.plays(Track(id="x", title="x", backend="jellyfin")))
 
         await sink.set_volume(0.55)
         check("volume", RENDERER.volume == 55 and sink.capabilities()["volume"])

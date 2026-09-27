@@ -23,15 +23,27 @@ KCM.SimpleKCM {
     property bool statusIsError: false
 
     readonly property var serverTypes: [
-        { type: "subsonic", label: i18n("Subsonic") },
-        { type: "jellyfin", label: i18n("Jellyfin") },
-        { type: "emby",     label: i18n("Emby") },
-        { type: "plex",     label: i18n("Plex") },
-        { type: "kodi",     label: i18n("Kodi") },
-        { type: "mpd",      label: i18n("MPD") },
-        { type: "lyrion",   label: i18n("Lyrion Music Server") },
-        { type: "upnp",     label: i18n("UPnP / DLNA players") },
+        { type: "emby", label: i18n("Emby"), address: "url", login: true, tls: true,
+          placeholder: "https://emby.example.org" },
+        { type: "jellyfin", label: i18n("Jellyfin"), address: "url", login: true,
+          tls: true, placeholder: "https://jellyfin.example.org" },
+        { type: "kodi", label: i18n("Kodi"), address: "host", login: true, tls: true },
+        { type: "lyrion", label: i18n("Lyrion Music Server"), address: "host",
+          login: true, tls: false, port: 9000 },
+        { type: "mpd", label: i18n("MPD"), address: "host", login: false, tls: false,
+          port: 6600 },
+        { type: "plex", label: i18n("Plex"), address: "url", login: false, tls: true,
+          placeholder: "http://192.168.1.20:32400" },
+        { type: "subsonic", label: i18n("Subsonic"), address: "url", login: true,
+          tls: true, placeholder: "https://music.example.org" },
+        // Last, as the only entry that is not a library.
+        { type: "upnp", label: i18n("UPnP / DLNA players"), address: "", login: false,
+          tls: false },
     ]
+
+    function serverType(type) {
+        return page.serverTypes.find(t => t.type === type) || {};
+    }
 
     function blankProfile(type) {
         switch (type) {
@@ -42,16 +54,16 @@ KCM.SimpleKCM {
         case "jellyfin":
         case "emby":
         case "plex":
-            return { type: type, name: page.serverTypes.find(t => t.type === type).label,
-                     url: "", username: "", password: "", verifyTls: true,
-                     enabled: true };
+            return { type: type, name: page.serverType(type).label, url: "",
+                     username: "", password: "", verifyTls: true, enabled: true };
         case "mpd":
             return { type: "mpd", name: i18n("MPD"), host: "127.0.0.1",
-                     port: 6600, password: "", musicDirectory: "",
+                     port: page.serverType(type).port, password: "", musicDirectory: "",
                      enabled: true };
         case "lyrion":
-            return { type: "lyrion", name: i18n("Lyrion"), host: "", port: 9000,
-                     username: "", password: "", enabled: true };
+            return { type: "lyrion", name: i18n("Lyrion"), host: "",
+                     port: page.serverType(type).port, username: "", password: "",
+                     enabled: true };
         case "upnp":
             return { type: "upnp", name: i18n("Network players"), renderers: [],
                      enabled: true };
@@ -62,31 +74,7 @@ KCM.SimpleKCM {
         }
     }
 
-    function usesUrl(type) {
-        return ["subsonic", "jellyfin", "emby", "plex"].includes(type);
-    }
-
-    function usesHost(type) {
-        return ["kodi", "mpd", "lyrion"].includes(type);
-    }
-
-    /* MPD has no user accounts, and Plex takes a token instead. */
-    function usesLogin(type) {
-        return ["subsonic", "jellyfin", "emby", "kodi", "lyrion"].includes(type);
-    }
-
-    function usesTls(type) {
-        return page.usesUrl(type) || type === "kodi";
-    }
-
-    function urlPlaceholder(type) {
-        switch (type) {
-        case "jellyfin": return "https://jellyfin.example.org";
-        case "emby":     return "https://emby.example.org";
-        case "plex":     return "http://192.168.1.20:32400";
-        default:         return "https://music.example.org";
-        }
-    }
+    readonly property var draftType: page.draft ? page.serverType(page.draft.type) : ({})
 
     /* Three ports are configured on this page and they differ only in which
        field they write to, so the plumbing is written once. */
@@ -305,8 +293,8 @@ KCM.SimpleKCM {
                 QQC2.TextField {
                     Kirigami.FormData.label: i18n("Server address:")
                     Layout.fillWidth: true
-                    visible: page.draft && page.usesUrl(page.draft.type)
-                    placeholderText: page.draft ? page.urlPlaceholder(page.draft.type) : ""
+                    visible: page.draftType.address === "url"
+                    placeholderText: page.draftType.placeholder || ""
                     text: page.draft ? (page.draft.url || "") : ""
                     onTextEdited: page.draft.url = text
                 }
@@ -316,7 +304,7 @@ KCM.SimpleKCM {
                 QQC2.TextField {
                     Kirigami.FormData.label: i18n("Host:")
                     Layout.fillWidth: true
-                    visible: page.draft && page.usesHost(page.draft.type)
+                    visible: page.draftType.address === "host"
                     placeholderText: page.draft && page.draft.type === "mpd"
                                      ? "127.0.0.1" : "192.168.1.20"
                     text: page.draft ? (page.draft.host || "") : ""
@@ -341,10 +329,9 @@ KCM.SimpleKCM {
 
                 PortField {
                     Kirigami.FormData.label: i18n("Port:")
-                    visible: page.draft && (page.draft.type === "mpd"
-                                            || page.draft.type === "lyrion")
+                    visible: !!page.draftType.port
                     field: "port"
-                    fallback: page.draft && page.draft.type === "lyrion" ? 9000 : 6600
+                    fallback: page.draftType.port || 0
                 }
 
                 ColumnLayout {
@@ -370,8 +357,6 @@ KCM.SimpleKCM {
                                  + "without this its music can only play on MPD.")
                     }
                 }
-
-                // -- UPnP ----------------------------------------------------
 
                 ColumnLayout {
                     Kirigami.FormData.label: i18n("Player addresses:")
@@ -407,7 +392,7 @@ KCM.SimpleKCM {
                 QQC2.TextField {
                     Kirigami.FormData.label: i18n("Username:")
                     Layout.fillWidth: true
-                    visible: page.draft && page.usesLogin(page.draft.type)
+                    visible: !!page.draftType.login
                     text: page.draft ? (page.draft.username || "") : ""
                     onTextEdited: page.draft.username = text
                 }
@@ -449,7 +434,7 @@ KCM.SimpleKCM {
                 }
 
                 QQC2.CheckBox {
-                    visible: page.draft && page.usesTls(page.draft.type)
+                    visible: !!page.draftType.tls
                     text: i18n("Check the TLS certificate")
                     checked: page.draft ? page.draft.verifyTls !== false : true
                     onToggled: page.draft.verifyTls = checked

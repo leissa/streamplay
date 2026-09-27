@@ -30,7 +30,7 @@ QtObject {
 
     readonly property var connectedSources:
         sources.filter(source => source.state === "connected")
-    /* Connected services with something to browse; UPnP renderers are only outputs. */
+    // UPnP renderers are only outputs.
     readonly property var libraries:
         connectedSources.filter(source => source.hasLibrary !== false)
     readonly property bool linked: libraries.length > 0

@@ -78,6 +78,8 @@ class PlexBackend(Backend):
         self.verify_tls = profile.get("verifyTls", True)
 
         self.sections: list[str] = []
+        #: ``section -> genre name -> id``, since Plex filters by a per-section tag id.
+        self._genre_ids: dict[str, dict[str, str]] = {}
         self._session = requests.Session()
         self._session.headers.update({
             "Accept": "application/json",
@@ -112,15 +114,13 @@ class PlexBackend(Backend):
     async def _metadata(self, path: str, **params: Any) -> list[dict[str, Any]]:
         return (await self._get(path, **params)).get("Metadata") or []
 
-    async def _paged(self, params_for, offset: int, limit: int) -> list[dict[str, Any]]:
-        """Page through the music sections as if they were one list, in section order."""
+    async def _paged(self, sections: dict[str, dict], offset: int,
+                     limit: int) -> list[dict[str, Any]]:
+        """Page through the sections in ``sections`` as if they were one list, in order."""
         out: list[dict[str, Any]] = []
-        for section in self.sections:
+        for section, params in sections.items():
             if len(out) >= limit:
                 break
-            params = params_for(section)
-            if params is None:
-                continue
             path = f"/library/sections/{section}/all"
             if offset and len(self.sections) > 1:
                 total = int((await self._get(path, **params, **{
@@ -193,12 +193,10 @@ class PlexBackend(Backend):
 
 
     async def artists(self) -> list[Artist]:
-        out: list[Artist] = []
-        for section in self.sections:
-            items = await self._metadata(f"/library/sections/{section}/all",
-                                         type=ARTIST, sort="titleSort")
-            out.extend(self._artist(a) for a in items)
-        return out
+        sections = await asyncio.gather(*(
+            self._metadata(f"/library/sections/{section}/all", type=ARTIST, sort="titleSort")
+            for section in self.sections))
+        return [self._artist(a) for items in sections for a in items]
 
     async def artist_albums(self, artist_id: str) -> list[Album]:
         items = await self._metadata(f"/library/metadata/{quote(artist_id)}/children")
@@ -208,7 +206,7 @@ class PlexBackend(Backend):
                      limit: int = 100) -> list[Album]:
         order, filters = ALBUM_SORTS.get(sort, ALBUM_SORTS["alphabetical"])
         items = await self._paged(
-            lambda section: {"type": ALBUM, "sort": order, **filters},
+            {section: {"type": ALBUM, "sort": order, **filters} for section in self.sections},
             offset, min(limit, 500))
         return [self._album(a) for a in items]
 
@@ -232,30 +230,24 @@ class PlexBackend(Backend):
                     found["tracks"].append(self._track(item))
         return found
 
-    async def _genre_ids(self) -> dict[str, dict[str, str]]:
-        """``section -> genre name -> id``, since Plex filters by a per-section tag id."""
-        out: dict[str, dict[str, str]] = {}
-        for section in self.sections:
-            body = await self._get(f"/library/sections/{section}/genre", type=ALBUM)
-            out[section] = {d["title"]: _genre_id(d)
-                            for d in body.get("Directory") or [] if d.get("title")}
-        return out
-
     async def genres(self) -> list[str]:
-        names = {name for ids in (await self._genre_ids()).values() for name in ids}
+        bodies = await asyncio.gather(*(
+            self._get(f"/library/sections/{section}/genre", type=ALBUM)
+            for section in self.sections))
+        self._genre_ids = {
+            section: {d["title"]: _genre_id(d) for d in body.get("Directory") or []
+                      if d.get("title")}
+            for section, body in zip(self.sections, bodies)}
+        names = {name for ids in self._genre_ids.values() for name in ids}
         return sorted(names, key=str.casefold)
 
     async def genre_albums(self, genre: str, offset: int = 0,
                            limit: int = 100) -> list[Album]:
-        ids = await self._genre_ids()
-
-        def params_for(section: str) -> dict | None:
-            genre_id = ids.get(section, {}).get(genre)
-            if genre_id is None:
-                return None
-            return {"type": ALBUM, "sort": "album.titleSort", "genre": genre_id}
-
-        items = await self._paged(params_for, offset, min(limit, 500))
+        if not any(genre in ids for ids in self._genre_ids.values()):
+            await self.genres()
+        params = {section: {"type": ALBUM, "sort": "album.titleSort", "genre": ids[genre]}
+                  for section, ids in self._genre_ids.items() if genre in ids}
+        items = await self._paged(params, offset, min(limit, 500))
         return [self._album(a) for a in items]
 
     async def playlists(self) -> list[dict[str, Any]]:

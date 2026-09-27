@@ -88,8 +88,9 @@ album share one and play through either destination. Do not move queue state
 into a backend or a sink.
 
 `Sink.plays(track)` says whether an output can play a track from that service
-at all; Kodi and MPD accept only their own library, Lyrion and UPnP anything
-but MPD's `file://` tracks. `Hub.unavailable(track,
+at all; Kodi and MPD accept only their own library. A sink with
+`web_streams_only` (Lyrion, UPnP) refuses another service's tracks unless its
+backend has `web_streams`, which MPD's `file://` URLs are not. `Hub.unavailable(track,
 sink)` folds that together with "the service is not connected" into the one
 reason the player skips the entry over (`_step_over`) and `queue()` hands the
 applet as `unavailable`. `UnifiedPlayer._watch_start` is the net underneath: an
@@ -100,9 +101,8 @@ A service's outputs come from `Backend.sinks()`: one for Kodi and MPD, one
 per player for Lyrion, one per renderer for UPnP. A backend whose set changes
 calls `sinks_changed()`, and `Hub._sync_sinks` diffs by id *and identity*, so
 `sinks()` must return the same object for the same device. Every sink is handed
-one track at a time. To add a service: `BACKEND_TYPES` (and `PLAYBACK_TYPES` if
-it has outputs) in `backends/__init__.py`, `sinks()`, `Sink.plays` and
-`Sink.source` — that last one is how `Hub._drop_source` tears the outputs down
+one track at a time. To add a service: `BACKEND_TYPES` in
+`backends/__init__.py`, `sinks()`, `Sink.plays` and `Sink.source` — that last one is how `Hub._drop_source` tears the outputs down
 with the service without knowing any type names. UPnP sets `has_library =
 False`, which keeps it out of `Hub.libraries()`, and the applet's
 `Client.libraries`, via `hasLibrary` in `sources`.
@@ -121,15 +121,14 @@ No remote service reports this well.
 
 - Kodi: `Player.OnStop` with `end: true` is eof; `KodiSink._expect_stop` marks
   our own stops.
-- MPD: `status` says a bare `state: stop` either way. `MpdSink._near_end()`
-  judges by position, carried forward from the last reading by wall clock
-  (`_note_position`), because a short track can start *and* end between two
-  polls. `_changing` covers the inverse case: replacing the queue takes MPD
-  through `stop`.
-- Lyrion and UPnP report a bare stop too and reuse MPD's approach
-  (`_near_end`, `_changing`). Lyrion counts a stop while `waitingToPlay` as
-  still playing; UPnP treats a `STOPPED` before the first `PLAYING`, within
-  `START_GRACE` of a play, as buffering.
+- MPD, Lyrion and UPnP report a bare stop either way, so their sinks derive
+  from `PolledSink`. `_near_end()` judges by position, carried forward from the
+  last reading by wall clock (`_note_position`), because a short track can
+  start *and* end between two polls. `_transition()` covers the inverse case:
+  replacing the track takes the service through stop.
+- Lyrion counts a stop while `waitingToPlay` as still playing; UPnP treats a
+  `STOPPED` before the first `PLAYING`, within `START_GRACE` of a play, as
+  buffering.
 
 ### Jellyfin specifics
 

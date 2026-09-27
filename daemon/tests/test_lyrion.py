@@ -140,7 +140,7 @@ async def library(lms: LyrionBackend) -> None:
           and "u:p%20w@" in target.url and target.native == {"track_id": "11"})
     url, _, headers = lms.cover_request("c7", 300)
     check("cover request", url.endswith("/music/c7/cover_300x300_o")
-          and headers["Authorization"].startswith("Basic "))
+          and lms.http_session.auth == ("u", "p w"))
 
 
 async def discovery(lms: LyrionBackend) -> None:
@@ -192,7 +192,6 @@ async def playback(lms: LyrionBackend) -> None:
           last("aa:03", "playlist") == ["playlist", "play", "http://music/x.flac", "Web"])
 
     mpd = Track(id="a.flac", title="Local", source="mpd", backend="mpd")
-    check("MPD tracks are refused", not sink.plays(mpd) and sink.plays(foreign))
     try:
         await sink.play(StreamTarget(url="file:///a.flac", source="mpd"), mpd)
         check("a file URL is refused", False)

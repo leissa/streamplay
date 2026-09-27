@@ -10,8 +10,8 @@ from typing import Any, Callable
 from urllib.parse import urlencode
 
 from . import __version__, secretstore
-from .backends import (BACKEND_TYPES, PLAYBACK_TYPES, Backend, BackendError,
-                       Sink, SourceUnavailable, create_backend)
+from .backends import (BACKEND_TYPES, Backend, BackendError, Sink,
+                       SourceUnavailable, create_backend)
 from .config import Config
 from .covers import CoverCache
 from .models import Track
@@ -227,6 +227,7 @@ class Hub:
     def sources_json(self) -> list[dict[str, Any]]:
         out = []
         for profile_id, profile in self.config.profiles.items():
+            cls = BACKEND_TYPES.get(profile.type, Backend)
             status = self.source_state.get(
                 profile_id, {"state": "disconnected", "message": None})
             out.append({
@@ -236,9 +237,8 @@ class Hub:
                 "enabled": profile.get("enabled", True),
                 "state": status["state"],
                 "message": status.get("message"),
-                "canPlayback": profile.type in PLAYBACK_TYPES,
-                "hasLibrary": getattr(BACKEND_TYPES.get(profile.type),
-                                      "has_library", True),
+                "canPlayback": cls.sinks is not Backend.sinks,
+                "hasLibrary": cls.has_library,
             })
         return out
 
@@ -309,14 +309,14 @@ class Hub:
             if sink.source == profile_id and offered.get(sink_id) is not sink:
                 await self._remove_sink(sink_id)
 
-        for sink_id, sink in offered.items():
-            if sink_id in self.sinks:
+        new = [sink for sink_id, sink in offered.items() if sink_id not in self.sinks]
+        started = await asyncio.gather(*(sink.start() for sink in new),
+                                       return_exceptions=True)
+        for sink, failure in zip(new, started):
+            if isinstance(failure, BaseException):
+                log.warning("%s is not usable as an output: %s", sink.name, failure)
                 continue
-            try:
-                await sink.start()
-            except Exception as exc:
-                log.warning("%s is not usable as an output: %s", sink.name, exc)
-                continue
+            sink_id = sink.id
             self.sinks[sink_id] = sink
             # An output found by discovery turns up after start() has settled on local.
             if (sink_id == self.config.settings.get("output")
@@ -379,10 +379,15 @@ class Hub:
 
     def unavailable(self, track: Track, sink: Sink | None) -> str | None:
         """Why the track cannot be played as things stand, or None."""
-        if track.source not in self.sources:
+        backend = self.sources.get(track.source)
+        if backend is None:
             return f"{self.source_name(track.source)} is not connected"
-        if sink is not None and not sink.plays(track):
+        if sink is None or sink.source == track.source:
+            return None
+        if not sink.plays(track):
             return f"{sink.name} plays only its own library"
+        if sink.web_streams_only and not backend.web_streams:
+            return f"{sink.name} cannot play music from {backend.name}"
         return None
 
     async def stream_target(self, track: Track):
@@ -403,8 +408,9 @@ class Hub:
 
     def backend(self, source: str | None) -> Backend:
         if not source:
-            if len(self.libraries()) == 1:
-                return self.libraries()[0]
+            libraries = self.libraries()
+            if len(libraries) == 1:
+                return libraries[0]
             raise BackendError("Say which music server to use")
         backend = self.sources.get(source)
         if backend is None:
@@ -415,9 +421,10 @@ class Hub:
         """One named service, or all connected ones when none is named."""
         if source:
             return [self.backend(source)]
-        if not self.libraries():
+        libraries = self.libraries()
+        if not libraries:
             raise BackendError("No music server is connected")
-        return self.libraries()
+        return libraries
 
     async def gather(self, source: str | None, call) -> list:
         """Run a library call across the selected services and merge the results."""

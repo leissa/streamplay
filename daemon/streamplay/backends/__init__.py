@@ -21,7 +21,7 @@ __all__ = [
     "EmbyBackend", "JellyfinBackend", "KodiBackend", "KodiSink",
     "LyrionBackend", "LyrionSink", "MpdBackend", "MpdSink", "PlexBackend",
     "SubsonicBackend", "UpnpBackend", "UpnpSink",
-    "BACKEND_TYPES", "PLAYBACK_TYPES", "create_backend",
+    "BACKEND_TYPES", "create_backend",
 ]
 
 BACKEND_TYPES = {
@@ -34,9 +34,6 @@ BACKEND_TYPES = {
     "lyrion": LyrionBackend,
     "upnp": UpnpBackend,
 }
-
-#: The services that offer outputs.
-PLAYBACK_TYPES = frozenset({"kodi", "mpd", "lyrion", "upnp"})
 
 
 def create_backend(profile: dict[str, Any]) -> Backend:

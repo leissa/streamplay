@@ -93,11 +93,9 @@ class KodiBackend(Backend):
             self._session.auth = (self.username, self.password)
         self._session.headers["Content-Type"] = "application/json"
         self._ids = itertools.count(1)
-        self._sink: KodiSink | None = None
+        self._sink = KodiSink(self)
 
     def sinks(self) -> list[Sink]:
-        if self._sink is None:
-            self._sink = KodiSink(self)
         return [self._sink]
 
 

@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from ..models import Album, Artist, Track
-from .base import Backend, BackendError, Sink, StreamTarget
+from .base import Backend, BackendError, PolledSink, Sink, StreamTarget
 
 log = logging.getLogger(__name__)
 
@@ -24,9 +23,6 @@ ID_SEP = "\x1f"
 
 CONNECT_TIMEOUT = 8.0
 COMMAND_TIMEOUT = 30.0
-
-#: How close to the end a stop must be to count as eof rather than a user's stop.
-EOF_SLACK = 1.0
 
 
 def _quote(value: str) -> str:
@@ -257,6 +253,7 @@ def _grouped(pairs: Sequence[tuple[str, str]],
 
 class MpdBackend(Backend):
     kind = "mpd"
+    web_streams = False
 
     def __init__(self, profile: dict[str, Any]) -> None:
         super().__init__(profile)
@@ -269,11 +266,9 @@ class MpdBackend(Backend):
 
         self.client = MpdConnection(self.host, self.port, self.password,
                                     self.unix_socket, self.name)
-        self._sink: MpdSink | None = None
+        self._sink = MpdSink(self)
 
     def sinks(self) -> list[Sink]:
-        if self._sink is None:
-            self._sink = MpdSink(self)
         return [self._sink]
 
     async def call(self, *args: Any) -> list[tuple[str, str]]:
@@ -499,13 +494,11 @@ class MpdBackend(Backend):
         return None
 
 
-class MpdSink(Sink):
+class MpdSink(PolledSink):
     """Plays one track at a time on an MPD instance.
 
     MPD's own queue is deliberately unused; ours is the source of truth.
     """
-
-    POLL_INTERVAL = 1.0
 
     def __init__(self, backend: MpdBackend) -> None:
         super().__init__()
@@ -517,13 +510,8 @@ class MpdSink(Sink):
         self.watcher = MpdConnection(
             backend.host, backend.port, backend.password,
             backend.unix_socket, backend.name)
-        #: Set while a play/stop is halfway through, when MPD passes through ``stop``.
-        self._changing = False
         self._has_mixer = True
-        #: When :attr:`state.position` was last read; see :meth:`_near_end`.
-        self._position_at = 0.0
         self._idle_task: asyncio.Task | None = None
-        self._poll_task: asyncio.Task | None = None
 
     async def start(self) -> None:
         # Whatever the user left MPD set to, our queue does the deciding.
@@ -534,14 +522,14 @@ class MpdSink(Sink):
         await self._sync()
         self._idle_task = asyncio.create_task(
             self._idle_loop(), name=f"mpd-idle-{self.backend.source}")
-        self._poll_task = asyncio.create_task(
-            self._poll_loop(), name=f"mpd-poll-{self.backend.source}")
+        # Keeps the progress bar moving, since ``idle`` says nothing about elapsed.
+        self._start_polling()
 
     async def close(self) -> None:
-        for task in (self._idle_task, self._poll_task):
-            if task:
-                task.cancel()
-        self._idle_task = self._poll_task = None
+        await super().close()
+        if self._idle_task:
+            self._idle_task.cancel()
+            self._idle_task = None
         await self.watcher.close()
 
 
@@ -559,18 +547,6 @@ class MpdSink(Sink):
                 log.debug("%s idle: %s", self.name, exc)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)
-
-    async def _poll_loop(self) -> None:
-        """Keep the progress bar moving; ``idle`` says nothing about elapsed."""
-        while True:
-            try:
-                await asyncio.sleep(self.POLL_INTERVAL)
-                if self.state.status == "playing":
-                    await self._sync()
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                log.debug("%s poll: %s", self.name, exc)
 
     async def _sync(self) -> None:
         try:
@@ -609,26 +585,6 @@ class MpdSink(Sink):
             # Otherwise somebody stopped MPD from another client.
         self._changed()
 
-    def _note_position(self, position: float) -> None:
-        """Record where playback is, and when we learned it."""
-        self.state.position = position
-        self._position_at = time.monotonic()
-
-    def _near_end(self) -> bool:
-        """Was the track about to finish when it stopped?
-
-        MPD says a bare ``state: stop`` either way, so position is the only evidence.
-        It is carried forward because a short track can start and end between polls.
-        """
-        if self.state.duration <= 0:
-            return True
-        position = self.state.position
-        if self.state.status == "playing":
-            position += max(0.0, time.monotonic() - self._position_at)
-        # Never let the slack swallow a whole short track.
-        slack = min(EOF_SLACK, self.state.duration / 2)
-        return position >= self.state.duration - slack
-
 
     def plays(self, track: Track) -> bool:
         return track.source == self.backend.source
@@ -649,22 +605,14 @@ class MpdSink(Sink):
         uri = self._uri_for(target, track)
 
         # Replacing the queue takes MPD through stop.
-        self._changing = True
-        try:
+        with self._transition():
             # MPD keeps the last playback error until told to forget it.
             await self.backend.call("clearerror")
             await self.backend.call("clear")
             await self.backend.call("single", "1")
             await self.backend.call("add", uri)
             await self.backend.call("play")
-        finally:
-            self._changing = False
-        self.state.status = "playing"
-        self._note_position(0.0)
-        self.state.duration = track.duration
-        self.state.error = None
-        self._changed()
-        await self._sync()
+        await self._started(track)
 
     async def resume(self) -> None:
         await self.backend.call("pause", "0")
@@ -677,16 +625,7 @@ class MpdSink(Sink):
         await self._sync()
 
     async def stop(self) -> None:
-        self._changing = True
-        try:
-            await self.backend.call("stop")
-        except BackendError as exc:
-            log.debug("%s stop: %s", self.name, exc)
-        finally:
-            self._changing = False
-        self.state.status = "stopped"
-        self._note_position(0.0)
-        self._changed()
+        await self._stop_with(self.backend.call("stop"))
 
     async def seek(self, position: float) -> None:
         try:
