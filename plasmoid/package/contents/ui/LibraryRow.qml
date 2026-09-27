@@ -13,6 +13,7 @@ Item {
     id: rowItem
 
     property var entry: null
+    property bool highlighted: false
 
     signal activated()
     signal playRequested()
@@ -35,6 +36,7 @@ Item {
         id: delegate
         width: parent.width
         visible: !rowItem.isHeader
+        highlighted: rowItem.highlighted
         onClicked: rowItem.activated()
 
         contentItem: RowLayout {
@@ -133,7 +135,7 @@ Item {
                 text: i18n("Play Now")
                 onClicked: rowItem.playRequested()
 
-                PlasmaComponents.ToolTip.text: text
+                PlasmaComponents.ToolTip.text: i18nc("@info:tooltip action and its keyboard shortcut", "%1 (%2)", text, i18nc("@info:shortcut", "Ctrl+Enter"))
                 PlasmaComponents.ToolTip.visible: hovered
                 PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
             }
@@ -146,7 +148,7 @@ Item {
                 text: i18n("Add to Queue")
                 onClicked: rowItem.queueRequested()
 
-                PlasmaComponents.ToolTip.text: text
+                PlasmaComponents.ToolTip.text: i18nc("@info:tooltip action and its keyboard shortcut", "%1 (%2)", text, i18nc("@info:shortcut", "Shift+Enter"))
                 PlasmaComponents.ToolTip.visible: hovered
                 PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
             }

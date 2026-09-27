@@ -53,7 +53,17 @@ Item {
 
             NowPlayingPane {}
             QueuePane {}
-            LibraryPane {}
+            LibraryPane { id: library }
+        }
+
+        // The search field's own Ctrl+F is live only while it is visible; both at once would be ambiguous.
+        Shortcut {
+            sequences: [StandardKey.Find]
+            enabled: tabs.currentIndex !== 2
+            onActivated: {
+                tabs.currentIndex = 2;
+                Qt.callLater(library.focusSearch);
+            }
         }
 
         // The daemon reports these in response to something the user just did.

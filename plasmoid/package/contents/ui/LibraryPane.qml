@@ -106,6 +106,11 @@ Item {
         replaceRoot(stack[0]);
     }
 
+    function focusSearch() {
+        searchField.forceActiveFocus(Qt.ShortcutFocusReason);
+        searchField.selectAll();
+    }
+
     function replaceRoot(entry) {
         stack = [entry];
         load();
@@ -227,6 +232,13 @@ Item {
         return null;
     }
 
+    function enqueue(entry, mode) {
+        const spec = specFor(entry);
+        if (spec) {
+            client.enqueue(spec, mode, mode === "replace");
+        }
+    }
+
     function activate(entry) {
         const item = entry.item;
         switch (entry.kind) {
@@ -298,6 +310,10 @@ Item {
                 visible: !pane.atRoot
                 text: i18n("Back")
                 onClicked: pane.pop()
+
+                PlasmaComponents.ToolTip.text: i18nc("@info:tooltip action and its keyboard shortcut", "%1 (%2)", text, i18nc("@info:shortcut", "Backspace"))
+                PlasmaComponents.ToolTip.visible: hovered
+                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
             }
 
             PlasmaComponents.ToolButton {
@@ -316,7 +332,18 @@ Item {
                 Layout.fillWidth: true
                 placeholderText: i18n("Search the library…")
 
+                PlasmaComponents.ToolTip.text: i18n("Ctrl+F to search, Down or Ctrl+N to pick a result, Enter to open it")
+                PlasmaComponents.ToolTip.visible: hovered && !activeFocus
+                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+
                 onTextChanged: searchDebounce.restart()
+                Keys.onDownPressed: list.enter()
+                Keys.onPressed: event => {
+                    if (event.modifiers === Qt.ControlModifier && event.key === Qt.Key_N) {
+                        list.enter();
+                        event.accepted = true;
+                    }
+                }
 
                 Timer {
                     id: searchDebounce
@@ -439,26 +466,100 @@ Item {
                 clip: true
                 reuseItems: true
 
+                function step(from, by) {
+                    for (let i = from + by; i >= 0 && i < count; i += by) {
+                        if (pane.entries[i].kind !== "header") {
+                            return i;
+                        }
+                    }
+                    return -1;
+                }
+
+                function select(i) {
+                    currentIndex = i;
+                    positionViewAtIndex(i, ListView.Contain);
+                }
+
+                function enter() {
+                    const first = step(-1, 1);
+                    if (first >= 0) {
+                        select(first);
+                        forceActiveFocus(Qt.TabFocusReason);
+                    }
+                }
+
+                function down() {
+                    const next = step(currentIndex, 1);
+                    if (next >= 0) {
+                        select(next);
+                    }
+                }
+
+                function up() {
+                    const prev = step(currentIndex, -1);
+                    if (prev >= 0) {
+                        select(prev);
+                    } else {
+                        pane.focusSearch();
+                    }
+                }
+
+                function activateCurrent(modifiers) {
+                    if (currentIndex < 0 || currentIndex >= count) {
+                        return;
+                    }
+                    const entry = pane.entries[currentIndex];
+                    // Keypad Enter carries KeypadModifier.
+                    modifiers &= ~Qt.KeypadModifier;
+                    if (modifiers === Qt.ControlModifier) {
+                        pane.enqueue(entry, "replace");
+                    } else if (modifiers === Qt.ShiftModifier) {
+                        pane.enqueue(entry, "append");
+                    } else {
+                        pane.activate(entry);
+                    }
+                }
+
+                // A reload while the list has focus would leave it on a stale row or a header.
+                onModelChanged: if (activeFocus) {
+                    enter();
+                }
+
+                Keys.onDownPressed: down()
+                Keys.onUpPressed: up()
+                Keys.onPressed: event => {
+                    if (event.key === Qt.Key_Backspace && event.modifiers === Qt.NoModifier) {
+                        if (!pane.atRoot) {
+                            pane.pop();
+                        }
+                        event.accepted = true;
+                        return;
+                    }
+                    if (event.modifiers !== Qt.ControlModifier) {
+                        return;
+                    }
+                    if (event.key === Qt.Key_N) {
+                        down();
+                        event.accepted = true;
+                    } else if (event.key === Qt.Key_P) {
+                        up();
+                        event.accepted = true;
+                    }
+                }
+                Keys.onReturnPressed: event => activateCurrent(event.modifiers)
+                Keys.onEnterPressed: event => activateCurrent(event.modifiers)
+
                 delegate: LibraryRow {
                     // Qt 6 injects modelData only into a delegate that asks for it.
                     required property var modelData
 
                     width: list.width
                     entry: modelData
+                    highlighted: ListView.isCurrentItem && list.activeFocus
 
                     onActivated: pane.activate(entry)
-                    onPlayRequested: {
-                        const spec = pane.specFor(entry);
-                        if (spec) {
-                            client.enqueue(spec, "replace", true);
-                        }
-                    }
-                    onQueueRequested: {
-                        const spec = pane.specFor(entry);
-                        if (spec) {
-                            client.enqueue(spec, "append", false);
-                        }
-                    }
+                    onPlayRequested: pane.enqueue(entry, "replace")
+                    onQueueRequested: pane.enqueue(entry, "append")
                 }
             }
         }
