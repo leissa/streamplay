@@ -6,25 +6,37 @@ from typing import Any
 
 from .base import (Backend, BackendError, Sink, SinkState, SourceUnavailable,
                    StreamTarget)
+from .emby import EmbyBackend
+from .jellyfin import JellyfinBackend
 from .kodi import KodiBackend, KodiSink
+from .lyrion import LyrionBackend, LyrionSink
 from .mpd import MpdBackend, MpdSink
+from .plex import PlexBackend
 from .subsonic import SubsonicBackend
+from .upnp import UpnpBackend, UpnpSink
 
 __all__ = [
     "Backend", "BackendError", "Sink", "SinkState", "SourceUnavailable",
     "StreamTarget",
-    "KodiBackend", "KodiSink", "MpdBackend", "MpdSink", "SubsonicBackend",
-    "BACKEND_TYPES", "PLAYBACK_TYPES", "create_backend", "create_sink",
+    "EmbyBackend", "JellyfinBackend", "KodiBackend", "KodiSink",
+    "LyrionBackend", "LyrionSink", "MpdBackend", "MpdSink", "PlexBackend",
+    "SubsonicBackend", "UpnpBackend", "UpnpSink",
+    "BACKEND_TYPES", "PLAYBACK_TYPES", "create_backend",
 ]
 
 BACKEND_TYPES = {
     "subsonic": SubsonicBackend,
+    "jellyfin": JellyfinBackend,
+    "emby": EmbyBackend,
+    "plex": PlexBackend,
     "kodi": KodiBackend,
     "mpd": MpdBackend,
+    "lyrion": LyrionBackend,
+    "upnp": UpnpBackend,
 }
 
-#: The services that are outputs as well as libraries.
-PLAYBACK_TYPES = frozenset({"kodi", "mpd"})
+#: The services that offer outputs.
+PLAYBACK_TYPES = frozenset({"kodi", "mpd", "lyrion", "upnp"})
 
 
 def create_backend(profile: dict[str, Any]) -> Backend:
@@ -35,11 +47,3 @@ def create_backend(profile: dict[str, Any]) -> Backend:
         raise BackendError(f"Unknown backend type {kind!r}") from None
     return cls(profile)
 
-
-def create_sink(backend: Backend) -> Sink | None:
-    """Some services can also play audio; expose those as an output."""
-    if isinstance(backend, KodiBackend):
-        return KodiSink(backend)
-    if isinstance(backend, MpdBackend):
-        return MpdSink(backend)
-    return None

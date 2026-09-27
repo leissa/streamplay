@@ -149,23 +149,23 @@ class DeadSink(FakeSink):
 async def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = pathlib.Path(tmp)
-        navidrome_dir = root / "navidrome"
+        subsonic_dir = root / "subsonic"
         kodi_dir = root / "kodi"
-        navidrome_dir.mkdir()
+        subsonic_dir.mkdir()
         kodi_dir.mkdir()
-        make_tones(navidrome_dir, 4)
+        make_tones(subsonic_dir, 4)
         make_tones(kodi_dir, 4)
 
-        navidrome = FakeLibrary("navidrome", navidrome_dir)
+        subsonic = FakeLibrary("subsonic", subsonic_dir)
         kodi = FakeLibrary("kodi-box", kodi_dir)
-        router = Router(navidrome, kodi)
+        router = Router(subsonic, kodi)
 
         player = UnifiedPlayer(router, lambda event, data: None, {"volume": 0.0})
         local = MpvSink(0.0)
         await local.start()
         await player.set_sink(local)
 
-        await player.enqueue(navidrome.tracks(4), mode="replace")
+        await player.enqueue(subsonic.tracks(4), mode="replace")
         await asyncio.sleep(1.0)
         state = player.state()
         check("replace starts playing the first track",
@@ -212,7 +212,7 @@ async def main() -> None:
         check("an explicit next escapes repeat one", player.state()["index"] == 1)
         await player.set_repeat("none")
 
-        await player.enqueue(navidrome.tracks(4), mode="replace")
+        await player.enqueue(subsonic.tracks(4), mode="replace")
         await asyncio.sleep(0.6)
         await player.set_shuffle(True)
         visited = {player.state()["index"]}
@@ -230,14 +230,14 @@ async def main() -> None:
         await player.set_repeat("none")
         await player.set_shuffle(False)
 
-        await player.enqueue(navidrome.tracks(4), mode="replace")
+        await player.enqueue(subsonic.tracks(4), mode="replace")
         await asyncio.sleep(0.6)
         await player.play_index(1)
         await asyncio.sleep(0.4)
         await player.move(3, 0)
         check("moving an entry shifts the playing index", player.state()["index"] == 2)
         check("the moved entry is now first",
-              player.queue()["tracks"][0]["title"] == "navidrome 4")
+              player.queue()["tracks"][0]["title"] == "subsonic 4")
 
         await player.remove([0])
         check("removing ahead of the current entry shifts it back",
@@ -249,15 +249,15 @@ async def main() -> None:
         check("removing what is playing moves on rather than stopping",
               state["track"]["title"] != playing and state["status"] == "playing")
 
-        mixed = [navidrome.tracks(4)[0], kodi.tracks(4)[0],
-                 navidrome.tracks(4)[1], kodi.tracks(4)[1]]
+        mixed = [subsonic.tracks(4)[0], kodi.tracks(4)[0],
+                 subsonic.tracks(4)[1], kodi.tracks(4)[1]]
         await player.enqueue(mixed, mode="replace")
         await asyncio.sleep(1.0)
         sources = [t["source"] for t in player.queue()["tracks"]]
         check("the queue interleaves both services",
-              sources == ["navidrome", "kodi-box", "navidrome", "kodi-box"])
+              sources == ["subsonic", "kodi-box", "subsonic", "kodi-box"])
         check("it starts on the first service's track",
-              player.state()["track"]["source"] == "navidrome")
+              player.state()["track"]["source"] == "subsonic")
         await player.next()
         await asyncio.sleep(1.0)
         state = player.state()
@@ -267,7 +267,7 @@ async def main() -> None:
         await player.next()
         await asyncio.sleep(1.0)
         check("and crosses back again",
-              player.state()["track"]["source"] == "navidrome"
+              player.state()["track"]["source"] == "subsonic"
               and player.state()["status"] == "playing")
 
         await player.play_index(0)
@@ -302,13 +302,13 @@ async def main() -> None:
                       source="switched-off"),
                 Track(id="2", title="Gone 2", duration=3.0, backend="fake",
                       source="switched-off")]
-        mixed = gone + [navidrome.tracks(4)[2]]
+        mixed = gone + [subsonic.tracks(4)[2]]
         await player.enqueue(mixed, mode="replace")
         await asyncio.sleep(1.5)
         state = player.state()
         check("skips tracks whose service is off and plays the next one",
               state["status"] == "playing"
-              and state["track"]["source"] == "navidrome")
+              and state["track"]["source"] == "subsonic")
 
         # With nothing playable it must give up rather than loop for ever.
         await player.enqueue(gone, mode="replace")
@@ -319,7 +319,7 @@ async def main() -> None:
         check("and explains why",
               "queue" in (state["error"] or "").lower())
 
-        await player.enqueue(navidrome.tracks(2), mode="replace")
+        await player.enqueue(subsonic.tracks(2), mode="replace")
         await asyncio.sleep(0.5)
         await player.set_volume(0.33)
         check("volume is applied", abs(player.state()["volume"] - 0.33) < 0.02)
@@ -329,26 +329,26 @@ async def main() -> None:
               and player.state()["status"] == "stopped")
 
         check("a play was reported to the service it came from",
-              any(sub for _, sub in navidrome.scrobbles))
+              any(sub for _, sub in subsonic.scrobbles))
 
         await player.set_sink(None, carry_over=False)
         await local.close()
 
-        await test_foreign_tracks_are_skipped(navidrome, kodi, router)
-        await test_output_that_never_starts(navidrome, router)
-        await test_first_track_advances(navidrome, router)
-        await test_gapless_handover(navidrome, router)
+        await test_foreign_tracks_are_skipped(subsonic, kodi, router)
+        await test_output_that_never_starts(subsonic, router)
+        await test_first_track_advances(subsonic, router)
+        await test_gapless_handover(subsonic, router)
         await test_mpv_losing_its_socket()
 
 
-async def test_foreign_tracks_are_skipped(navidrome, kodi, router) -> None:
+async def test_foreign_tracks_are_skipped(subsonic, kodi, router) -> None:
     """An output bound to one service steps over the rest of the queue."""
     player = UnifiedPlayer(router, lambda event, data: None, {"volume": 0.0})
     await player.set_sink(FakeSink())
-    await player.enqueue(navidrome.tracks(2) + [kodi.tracks(1)[0]], mode="replace")
+    await player.enqueue(subsonic.tracks(2) + [kodi.tracks(1)[0]], mode="replace")
     await asyncio.sleep(0.2)
     check("the permissive output starts on the first track",
-          player.state()["track"]["source"] == "navidrome")
+          player.state()["track"]["source"] == "subsonic")
 
     theirs = FakeSink("kodi-box")
     await player.set_sink(theirs)
@@ -379,7 +379,7 @@ async def test_output_that_never_starts(library, router) -> None:
     finally:
         player_module.START_TIMEOUT = saved
     check("a track the output never started is given up on",
-          sink.played == ["navidrome 1", "navidrome 2"])
+          sink.played == ["subsonic 1", "subsonic 2"])
     check("and the queue ends up stopped rather than stuck",
           player.state()["status"] == "stopped")
     await player.set_sink(None, carry_over=False)

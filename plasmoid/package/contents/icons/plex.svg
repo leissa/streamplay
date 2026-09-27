@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The Plex chevron, redrawn; Plex is a trademark of Plex, Inc. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Plex</title>
+  <rect width="512" height="512" rx="96" fill="#282a2d"/>
+  <path d="M150 96h120l120 160-120 160H150l120-160z" fill="#e5a00d"/>
+</svg>

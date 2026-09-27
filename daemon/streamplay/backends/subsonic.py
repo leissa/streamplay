@@ -1,4 +1,4 @@
-"""Subsonic-API client (Navidrome, Gonic, Airsonic, Subsonic itself).
+"""Subsonic-API client, for Subsonic itself and every server speaking its API.
 
 Only the library half lives here; mpv streams the URLs :meth:`SubsonicBackend.stream_url` builds.
 """

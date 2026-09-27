@@ -10,8 +10,8 @@ from typing import Any, Callable
 from urllib.parse import urlencode
 
 from . import __version__, secretstore
-from .backends import (PLAYBACK_TYPES, Backend, BackendError, Sink,
-                       SourceUnavailable, create_backend, create_sink)
+from .backends import (BACKEND_TYPES, PLAYBACK_TYPES, Backend, BackendError,
+                       Sink, SourceUnavailable, create_backend)
 from .config import Config
 from .covers import CoverCache
 from .models import Track
@@ -237,6 +237,8 @@ class Hub:
                 "state": status["state"],
                 "message": status.get("message"),
                 "canPlayback": profile.type in PLAYBACK_TYPES,
+                "hasLibrary": getattr(BACKEND_TYPES.get(profile.type),
+                                      "has_library", True),
             })
         return out
 
@@ -277,14 +279,9 @@ class Hub:
                 raise BackendError(str(exc)) from exc
 
             self.sources[profile_id] = backend
-
-            sink = create_sink(backend)
-            if sink is not None:
-                try:
-                    await sink.start()
-                    self.sinks[sink.id] = sink
-                except Exception as exc:
-                    log.warning("%s is not usable as an output: %s", profile_id, exc)
+            await self._sync_sinks(profile_id, backend)
+            backend.watch_sinks(lambda: asyncio.create_task(
+                self._sinks_changed(profile_id, backend)))
 
             self._set_source_state(profile_id, "connected")
             self.broadcast_state()
@@ -297,22 +294,56 @@ class Hub:
             self.broadcast_state()
             self.broadcast_queue()
 
+    async def _sinks_changed(self, profile_id: str, backend: Backend) -> None:
+        async with self._lock:
+            if self.sources.get(profile_id) is not backend:
+                return
+            await self._sync_sinks(profile_id, backend)
+            self.broadcast_state()
+            self.broadcast_queue()
+
+    async def _sync_sinks(self, profile_id: str, backend: Backend) -> None:
+        """Bring the outputs of one service in line with what it offers now."""
+        offered = {sink.id: sink for sink in backend.sinks()}
+        for sink_id, sink in list(self.sinks.items()):
+            if sink.source == profile_id and offered.get(sink_id) is not sink:
+                await self._remove_sink(sink_id)
+
+        for sink_id, sink in offered.items():
+            if sink_id in self.sinks:
+                continue
+            try:
+                await sink.start()
+            except Exception as exc:
+                log.warning("%s is not usable as an output: %s", sink.name, exc)
+                continue
+            self.sinks[sink_id] = sink
+            # An output found by discovery turns up after start() has settled on local.
+            if (sink_id == self.config.settings.get("output")
+                    and self.player.sink is self.sinks.get(LOCAL_OUTPUT)
+                    and self.player.state()["status"] != "playing"):
+                await self.player.set_sink(sink)
+
+    async def _remove_sink(self, sink_id: str) -> None:
+        sink = self.sinks.pop(sink_id, None)
+        if sink is None:
+            return
+        if self.player.sink is sink:
+            await self.player.set_sink(self.sinks.get(LOCAL_OUTPUT), carry_over=False)
+        try:
+            await sink.close()
+        except Exception:
+            log.debug("sink shutdown failed", exc_info=True)
+
     async def _drop_source(self, profile_id: str) -> None:
         """Tear down a service and anything that depended on it."""
         # Outputs are found by the profile they belong to, not by a composed id.
-        for sink_id, sink in [(k, v) for k, v in self.sinks.items()
-                              if v.source == profile_id]:
-            self.sinks.pop(sink_id, None)
-            if self.player.sink is sink:
-                await self.player.set_sink(self.sinks.get(LOCAL_OUTPUT),
-                                           carry_over=False)
-            try:
-                await sink.close()
-            except Exception:
-                log.debug("sink shutdown failed", exc_info=True)
+        for sink_id in [k for k, v in self.sinks.items() if v.source == profile_id]:
+            await self._remove_sink(sink_id)
 
         backend = self.sources.pop(profile_id, None)
         if backend is not None:
+            backend.watch_sinks(None)
             try:
                 await backend.close()
             except Exception:
@@ -367,10 +398,13 @@ class Hub:
             await backend.scrobble(track, submission)
 
 
+    def libraries(self) -> list[Backend]:
+        return [b for b in self.sources.values() if b.has_library]
+
     def backend(self, source: str | None) -> Backend:
         if not source:
-            if len(self.sources) == 1:
-                return next(iter(self.sources.values()))
+            if len(self.libraries()) == 1:
+                return self.libraries()[0]
             raise BackendError("Say which music server to use")
         backend = self.sources.get(source)
         if backend is None:
@@ -381,9 +415,9 @@ class Hub:
         """One named service, or all connected ones when none is named."""
         if source:
             return [self.backend(source)]
-        if not self.sources:
+        if not self.libraries():
             raise BackendError("No music server is connected")
-        return list(self.sources.values())
+        return self.libraries()
 
     async def gather(self, source: str | None, call) -> list:
         """Run a library call across the selected services and merge the results."""

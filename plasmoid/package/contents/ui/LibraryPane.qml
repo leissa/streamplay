@@ -83,7 +83,7 @@ Item {
 
     function refresh() {
         if (sourceFilter
-            && !client.connectedSources.some(s => s.id === sourceFilter)) {
+            && !client.libraries.some(s => s.id === sourceFilter)) {
             sourceFilter = "";
             stack = [{ mode: here.mode, title: "" }];
         }
@@ -330,10 +330,10 @@ Item {
             PlasmaComponents.ComboBox {
                 id: sourceBox
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 8
-                visible: client.sources.length > 1
+                visible: client.libraries.length > 1
                 textRole: "name"
                 model: [{ id: "", name: i18n("All libraries") }].concat(
-                           client.connectedSources)
+                           client.libraries)
 
                 onActivated: index => {
                     pane.sourceFilter = model[index].id || "";

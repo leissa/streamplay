@@ -299,12 +299,12 @@ async def test_sink() -> None:
           await wait_for(lambda: ended == ["eof"], timeout=2.0))
 
     foreign = StreamTarget(url="http://music.example/stream?id=7",
-                           source="navidrome")
+                           source="subsonic")
     await sink.play(foreign, track)
     check("a web stream from another service plays on MPD too",
           server.queue == ["http://music.example/stream?id=7"])
 
-    local = StreamTarget(url="file:///tmp/nothing.flac", source="navidrome")
+    local = StreamTarget(url="file:///tmp/nothing.flac", source="subsonic")
     try:
         await sink.play(local, track)
         check("a local file from another service is refused with a reason", False)

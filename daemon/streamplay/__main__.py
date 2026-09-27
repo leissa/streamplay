@@ -21,7 +21,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="streamplay",
         description="Control daemon for self-hosted music libraries "
-                    "(Subsonic/Navidrome and Kodi) with MPRIS2 support.",
+                    "(Subsonic, Jellyfin, Emby, Plex, Kodi, MPD, Lyrion, UPnP) with MPRIS2 support.",
     )
     parser.add_argument("-c", "--config", type=Path, default=CONFIG_FILE,
                         help=f"configuration file (default: {CONFIG_FILE})")

@@ -12,7 +12,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "daemon"
 
 from PIL import Image
 
-from streamplay import backends, hub as hub_module, secretstore
+from streamplay import backends, secretstore
 from streamplay.backends.base import Backend, Sink, StreamTarget
 from streamplay.config import Config
 from streamplay.covers import CoverCache
@@ -30,23 +30,23 @@ def dur(s):
 
 # source, slug, album, artist, year, genre, tracks
 LIBRARY = [
-    ("navidrome", "night-drive-atlas", "Night Drive Atlas", "Neon Cartography", 2020, "Synthwave", [
+    ("subsonic", "night-drive-atlas", "Night Drive Atlas", "Neon Cartography", 2020, "Synthwave", [
         ("Ignition Sequence", "3:41"), ("Chrome Boulevard", "4:26"), ("Coastline at 2 AM", "5:12"),
         ("Tail Lights", "3:58"), ("Midnight Interchange", "4:47"), ("Radio Static Hearts", "4:05"),
         ("Overpass", "3:22"), ("Last Exit, First Light", "6:31")]),
-    ("navidrome", "low-tide-radio", "Low Tide Radio", "Aurora Vale", 2021, "Dream Pop", [
+    ("subsonic", "low-tide-radio", "Low Tide Radio", "Aurora Vale", 2021, "Dream Pop", [
         ("Seaglass", "4:12"), ("Paper Lanterns", "3:49"), ("Low Tide Radio", "5:03"),
         ("Undertow", "4:38"), ("Salt in Your Hair", "3:27"), ("Lighthouse Keeper", "5:55")]),
-    ("navidrome", "quiet-machines", "Quiet Machines", "Mira Kessler", 2023, "Electronic", [
+    ("subsonic", "quiet-machines", "Quiet Machines", "Mira Kessler", 2023, "Electronic", [
         ("Boot", "1:48"), ("Soft Circuits", "5:21"), ("Idle Loop", "4:44"),
         ("Cold Storage", "6:02"), ("Handshake", "4:10"), ("Sleep Mode", "7:15")]),
-    ("navidrome", "afterglow", "Afterglow", "Velvet Static", 2022, "Shoegaze", [
+    ("subsonic", "afterglow", "Afterglow", "Velvet Static", 2022, "Shoegaze", [
         ("Bloomfield", "5:40"), ("Afterglow", "6:14"), ("Hazel", "4:02"),
         ("Tape Hiss Lullaby", "5:33"), ("Everything Is Loud", "7:08")]),
-    ("navidrome", "concrete-bloom", "Concrete Bloom", "Lumen District", 2024, "Electronic", [
+    ("subsonic", "concrete-bloom", "Concrete Bloom", "Lumen District", 2024, "Electronic", [
         ("Brutalist Spring", "4:31"), ("Rooftop Garden", "5:09"), ("Tram Lines", "3:56"),
         ("Neon Moss", "4:48"), ("Concrete Bloom", "6:20")]),
-    ("navidrome", "signals-from-the-attic", "Signals from the Attic", "The Paper Satellites", 2018, "Indie Rock", [
+    ("subsonic", "signals-from-the-attic", "Signals from the Attic", "The Paper Satellites", 2018, "Indie Rock", [
         ("Antenna", "3:14"), ("Morse Code Kids", "3:42"), ("Dust on the Receiver", "4:19"),
         ("Attic Window", "3:51"), ("Broadcast", "4:36"), ("Static Summer", "3:28")]),
     ("kodi", "ember-and-ash", "Ember & Ash", "Hollow Pines", 2016, "Folk", [
@@ -69,7 +69,7 @@ LIBRARY = [
 ]
 
 PLAYLISTS = {
-    "navidrome": [("pl-drive", "Late Night Drive", ["night-drive-atlas", "quiet-machines"]),
+    "subsonic": [("pl-drive", "Late Night Drive", ["night-drive-atlas", "quiet-machines"]),
                   ("pl-focus", "Deep Focus", ["quiet-machines", "concrete-bloom"]),
                   ("pl-sunday", "Sunday Morning", ["low-tide-radio", "afterglow"])],
     "kodi": [("pl-dinner", "Dinner Party", ["blue-hour-sessions", "copper-sky"])],
@@ -208,15 +208,18 @@ class DemoSink(Sink):
 SINK_NAMES = {"kodi": "Living Room (Kodi)", "mpd": "Study (MPD)"}
 
 
-def create_sink(backend):
-    if backend.kind in SINK_NAMES:
-        return DemoSink(f"{backend.kind}:{backend.source}", SINK_NAMES[backend.kind], backend.source)
-    return None
+def demo_sinks(backend):
+    if backend.kind not in SINK_NAMES:
+        return []
+    if not hasattr(backend, "demo_sink"):
+        backend.demo_sink = DemoSink(f"{backend.kind}:{backend.source}",
+                                     SINK_NAMES[backend.kind], backend.source)
+    return [backend.demo_sink]
 
 
 async def main(port, output):
     backends.BACKEND_TYPES.update(subsonic=Subsonic, kodi=Kodi, mpd=Mpd)
-    hub_module.create_sink = create_sink
+    DemoBackend.sinks = demo_sinks
     secretstore.load_all = lambda: {}
 
     async def local_sink(self):
@@ -225,7 +228,7 @@ async def main(port, output):
 
     tmp = ART.parent / "daemon"
     config = Config(tmp / "config.json")
-    config.upsert({"id": "navidrome", "name": "Navidrome", "type": "subsonic", "enabled": True,
+    config.upsert({"id": "subsonic", "name": "Subsonic", "type": "subsonic", "enabled": True,
                    "url": "https://music.example.org", "username": "demo"})
     config.upsert({"id": "kodi", "name": "Living Room", "type": "kodi", "enabled": True,
                    "host": "livingroom.local", "port": 8080})
@@ -243,7 +246,7 @@ async def main(port, output):
 
     player = hub.player
     await hub.set_output(output)
-    nav, kodi = hub.sources["navidrome"], hub.sources["kodi"]
+    nav, kodi = hub.sources["subsonic"], hub.sources["kodi"]
     await player.enqueue((await nav.album_tracks("night-drive-atlas"))[:5], mode="replace")
     await player.enqueue((await kodi.album_tracks("ember-and-ash"))[:3])
     await player.enqueue((await hub.sources["mpd"].album_tracks("orbit-songs"))[:2])

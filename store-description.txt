@@ -1,14 +1,14 @@
 Summary:
-Your self-hosted music (Navidrome, Subsonic, Kodi, MPD) in one queue, right in your panel.
+Your self-hosted music (Subsonic, Jellyfin, Emby, Plex, Kodi, MPD, Lyrion) in one queue, right in your panel.
 
 Description:
-[b]Streamplay[/b] brings the music on your own servers into a Plasma panel: [b]Navidrome[/b] and other [b]Subsonic[/b]-compatible servers, [b]Kodi[/b] and [b]MPD[/b], several at once. Browse everything as one library, build a single queue from all of it, and choose where it plays: on this computer, on a Kodi box or on MPD.
+[b]Streamplay[/b] brings the music on your own servers into a Plasma panel: [b]Subsonic[/b]-compatible servers (Airsonic, Ampache, Funkwhale, Gonic, LMS, Navidrome), [b]Jellyfin[/b], [b]Emby[/b], [b]Plex[/b], [b]Kodi[/b], [b]MPD[/b] and [b]Lyrion Music Server[/b], several at once. Browse everything as one library, build a single queue from all of it, and choose where it plays: on this computer, on Kodi, MPD or a Squeezebox player, or on a UPnP/DLNA speaker, TV or receiver.
 
 [b]Features[/b]
 [list]
 [*][b]All your servers at once.[/b] Each one has its own on/off switch. The library merges them, and a badge on every row shows where an item came from.
-[*][b]One queue for everything.[/b] A Navidrome album and a Kodi album can sit side by side and play one after the other.
-[*][b]Choose where it plays.[/b] Play on the local speakers, on Kodi or on MPD, and switch in the middle of a track without losing your place.
+[*][b]One queue for everything.[/b] A Subsonic album and a Kodi album can sit side by side and play one after the other.
+[*][b]Choose where it plays.[/b] Play on the local speakers, on Kodi, MPD, Lyrion players or UPnP/DLNA renderers such as Sonos, and switch in the middle of a track without losing your place.
 [*][b]Gapless playback[/b] on this computer, with the next track buffered in advance.
 [*][b]Browse[/b] by album, artist, genre or playlist, and search across every connected server.
 [*][b]Edit the queue.[/b] Play next, add to the end, replace, drag to reorder, remove, shuffle and three repeat modes.
@@ -39,7 +39,7 @@ The service relies on a few common packages from your distribution. Before start
 mpv plays the audio on this computer, and python-dbus plus python-gobject provide the media-key and Now Playing integration. Requires Plasma 6.
 
 [b]Getting started[/b]
-Open the widget's settings, go to [i]Music Servers[/i] and add a Navidrome/Subsonic, Kodi or MPD server. [i]Test Connection[/i] checks your settings before you save them. For Kodi, turn on [i]Settings → Services → Control → Allow remote control via HTTP[/i] (and allow control from other systems).
+Open the widget's settings, go to [i]Music Servers[/i] and choose [i]Add Music Server…[/i]. [i]Test Connection[/i] checks your settings before you save them. For Kodi, turn on [i]Settings → Services → Control → Allow remote control via HTTP[/i] (and allow control from other systems).
 
 [b]Removing it[/b]
 To stop the service: [i]systemctl --user stop streamplay-applet[/i]. It no longer starts once the widget is removed. Your servers and settings stay in ~/.config/streamplay/.

@@ -3,5 +3,5 @@
   <path transform="translate(50 160) scale(5)" d="M22 10 C14 21 30 21 22 32 C14 43 30 43 22 54 L54 32 Z" fill="#fff" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>
   <text x="380" y="340" font-family="Noto Sans" font-weight="600" font-size="124" fill="#fff" letter-spacing="-2">Streamplay</text>
   <text x="386" y="410" font-family="Noto Sans" font-size="38" fill="#fff" fill-opacity="0.78">Your self-hosted music in the Plasma panel</text>
-  <text x="386" y="462" font-family="Noto Sans" font-size="30" fill="#fff" fill-opacity="0.55">Navidrome · Subsonic · Kodi · MPD</text>
+  <text x="386" y="462" font-family="Noto Sans" font-size="30" fill="#fff" fill-opacity="0.55">Subsonic · Jellyfin · Emby · Plex · Kodi · MPD · Lyrion</text>
 </svg>

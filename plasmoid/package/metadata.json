@@ -9,7 +9,7 @@
         ],
         "BugReportUrl": "https://github.com/leissa/streamplay/issues",
         "Category": "Multimedia",
-        "Description": "Browse and control a self-hosted music library on Navidrome, Subsonic, Kodi or MPD",
+        "Description": "Browse and control a self-hosted music library on Subsonic, Jellyfin, Emby, Plex, Kodi, MPD or Lyrion, playing here or on UPnP/DLNA players",
         "Icon": "/icons/streamplay.svg",
         "Id": "io.github.leissa.streamplay",
         "License": "GPL-3.0-or-later",

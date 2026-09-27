@@ -39,8 +39,13 @@ function subtitle(track) {
 /* The icon standing for a kind of music server, used wherever one is listed. */
 function serverIcon(type) {
     switch (type) {
-    case "kodi":  return Qt.resolvedUrl("../icons/kodi.svg");
-    case "mpd":   return Qt.resolvedUrl("../icons/mpd.svg");
-    default:      return Qt.resolvedUrl("../icons/navidrome.png");
+    case "emby":     return Qt.resolvedUrl("../icons/emby.svg");
+    case "jellyfin": return Qt.resolvedUrl("../icons/jellyfin.svg");
+    case "kodi":     return Qt.resolvedUrl("../icons/kodi.svg");
+    case "lyrion":   return Qt.resolvedUrl("../icons/lyrion.png");
+    case "mpd":      return Qt.resolvedUrl("../icons/mpd.svg");
+    case "plex":     return Qt.resolvedUrl("../icons/plex.svg");
+    case "upnp":     return "network-wireless";
+    default:         return Qt.resolvedUrl("../icons/subsonic.png");
     }
 }

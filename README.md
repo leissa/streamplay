@@ -3,22 +3,24 @@
 [![tests](https://img.shields.io/github/actions/workflow/status/leissa/streamplay/tests.yml?branch=master&style=flat-square&logo=github&label=tests)](https://github.com/leissa/streamplay/actions/workflows/tests.yml)
 
 A Plasma 6 widget for self-hosted music libraries. It connects to
-**Navidrome / Subsonic-compatible** servers, to **Kodi** and to **MPD** —
-several of them at the same time — and puts everything into a single shared
-queue that can be played on this computer or on any connected Kodi or MPD
-instance. It registers itself with KDE as an MPRIS2 player, so Now Playing, the
-media keys and the lock screen all control it.
+**Subsonic**-compatible servers, **Jellyfin**, **Emby**, **Plex**, **Kodi**,
+**MPD** and **Lyrion Music Server** — several of them at the same time — and
+puts everything into a single shared queue that can be played on this
+computer, on Kodi, MPD or a Squeezebox player, or on any UPnP/DLNA renderer on
+the network. It registers itself with KDE as an MPRIS2 player, so Now Playing,
+the media keys and the lock screen all control it.
 
 ## What it does
 
 - **Several services at once.** Each server has its own on/off switch; browsing
   merges the connected ones into one library, with a badge on every row saying
   where it came from. A filter narrows it back to a single service.
-- **One queue for all of them.** A Navidrome album and a Kodi album can sit next
+- **One queue for all of them.** A Subsonic album and a Kodi album can sit next
   to each other in the same queue and play one after the other.
 - **Pick where it plays.** The queue can go to this computer's speakers (via
-  mpv), to a Kodi instance or to MPD. Switching mid-track carries the position
-  over.
+  mpv), to Kodi, to MPD, to any player of a Lyrion Music Server, or to a UPnP /
+  DLNA renderer such as a Sonos speaker, a TV or an AV receiver. Switching
+  mid-track carries the position over.
 - **The usual transport.** Play, pause, stop, next, previous, seek, rewind by
   dragging the progress bar, volume, shuffle and three repeat modes.
 - **Queue editing.** Enqueue, play next, replace, remove, drag to reorder,
@@ -46,17 +48,22 @@ it. That also means music keeps playing if plasmashell is restarted.
 │  ├───────────┬───────────┤  │
 │  │ libraries │  outputs  │  │
 │  │ Subsonic  │  mpv      │  │   any library can play on any output
-│  │ Kodi      │  Kodi     │  │
-│  │ MPD       │  MPD      │  │
+│  │ Jellyfin  │  Kodi     │  │
+│  │ Emby      │  MPD      │  │
+│  │ Plex      │  Lyrion   │  │   one output per player
+│  │ Kodi      │  UPnP     │  │   one output per renderer
+│  │ MPD       │           │  │
+│  │ Lyrion    │           │  │
 │  └───────────┴───────────┘  │
 │  MPRIS2 ──────> D-Bus       │
 └─────────────────────────────┘
 ```
 
 A *library* is something you browse; an *output* is somewhere audio comes out.
-Kodi and MPD are both. Because neither owns the queue, tracks from one service
-can play through the other: Kodi songs are streamed locally over Kodi's own HTTP
-server, and Subsonic streams can be handed to Kodi or MPD as a URL.
+Kodi, MPD and Lyrion are both; UPnP renderers are only outputs. Because neither
+side owns the queue, tracks from one service can play through another: Kodi
+songs are streamed locally over Kodi's own HTTP server, and every other library
+hands out stream URLs that any output can open.
 
 MPD is the one asymmetric case. It serves no audio over its control port, so
 playing its music anywhere other than on MPD itself needs the files to be
@@ -105,13 +112,30 @@ running the old version.
 
 ## Adding servers
 
-Open the widget's settings → **Music Servers** → *Add Navidrome / Subsonic…*,
-*Add Kodi…* or *Add MPD…*.
+Open the widget's settings → **Music Servers** → *Add Music Server…* and pick
+the kind of server.
 
-- **Navidrome / Subsonic** needs the base URL (`https://music.example.org`, not
-  the `/rest` path), a username and a password. The password is never sent in
-  the clear: each request carries a salted MD5 token instead. Very old servers
-  that do not understand this can be switched to the legacy format.
+- **Subsonic** covers every server speaking the Subsonic API:
+  [Airsonic-Advanced](https://github.com/airsonic-advanced/airsonic-advanced),
+  [Ampache](https://ampache.org), [Funkwhale](https://funkwhale.audio),
+  [Gonic](https://github.com/sentriz/gonic),
+  [LMS (Lightweight Music Server)](https://github.com/epoupon/lms),
+  [Navidrome](https://www.navidrome.org) and Subsonic itself. It needs the base
+  URL (`https://music.example.org`, not the `/rest` path), a username and a
+  password. The password is never sent in the clear: each request carries a
+  salted MD5 token instead. Very old servers that do not understand this can be
+  switched to the legacy format.
+- **Jellyfin** needs the base URL (`https://jellyfin.example.org`, including any
+  base path such as `/jellyfin`), a username and a password. The widget logs in
+  as its own device and shows up under *Dashboard → Devices*.
+- **Emby** needs the server address (`https://emby.example.org` or
+  `http://host:8096`; the `/emby` API path is added automatically), a username
+  and a password. Like Jellyfin, the widget logs in as its own device.
+- **Plex** needs the server address (`http://192.168.1.20:32400`; the port
+  defaults to 32400) and an access token: in Plex Web, open any item, choose
+  *Get Info → View XML* and copy the `X-Plex-Token` value from the address bar.
+  Every music library on the server is merged into one. Streams are the
+  original files; Plex's transcoder is not used.
 - **Kodi** needs the host, the web interface port (8080 by default) and the
   event port (9090). In Kodi, turn on *Settings → Services → Control → Allow
   remote control via HTTP* and *Allow remote control from applications on other
@@ -130,6 +154,17 @@ Open the widget's settings → **Music Servers** → *Add Navidrome / Subsonic�
   `config.json`; the settings dialog has no field for it. That is worth doing
   for a local MPD, because MPD tells a socket client where its music lives and
   the music folder then fills itself in.
+- **Lyrion Music Server** (formerly Logitech Media Server / Squeezebox Server)
+  needs the host and web port (9000 by default), plus a username and password
+  only if *Settings → Advanced → Security* has password protection on. Its
+  library can be browsed, and every connected player (Squeezebox, piCorePlayer,
+  Squeezelite) appears as its own output. Players that connect later show up
+  within about ten seconds.
+- **UPnP / DLNA players** need nothing: speakers, TVs and receivers that accept
+  streams (Sonos, gmrender, upmpdcli, many AV receivers) are found on the local
+  network and appear as outputs, and new ones show up within a minute. They
+  play anything streamed over HTTP, but not MPD's local files. A player that
+  multicast cannot reach can be added by its device-description URL.
 
 **Test Connection** checks the settings without touching the live connection.
 **Save and Connect** applies them immediately. Each server's switch controls
@@ -170,8 +205,8 @@ configuration file.
 If you changed the port, change it in the widget's settings too.
 
 **A server shows as failed.** The settings page prints the reason underneath its
-name. For Kodi that is usually remote control not being enabled; for Navidrome,
-a wrong URL or password; for MPD, `bind_to_address` in `mpd.conf` not covering
+name. For Kodi that is usually remote control not being enabled; for Subsonic,
+Jellyfin, Emby and Plex, a wrong URL, password or token; for MPD, `bind_to_address` in `mpd.conf` not covering
 the address you gave.
 
 **MPD tracks will not play on the local speakers.** That is the music folder
@@ -200,6 +235,12 @@ cd daemon
 python3 tests/test_player.py     # queue, shuffle, repeat, output switching, with real mpv
 python3 tests/test_protocol.py   # the control protocol, with two services connected
 python3 tests/test_mpd.py        # the MPD library and output, against a stub MPD
+python3 tests/test_kodi.py       # the Kodi output, against scripted notifications
+python3 tests/test_jellyfin.py   # the Jellyfin library, against a stub server
+python3 tests/test_emby.py       # the Emby library, against a stub server
+python3 tests/test_plex.py       # the Plex library, against a stub server
+python3 tests/test_lyrion.py     # the Lyrion library and players, against a stub server
+python3 tests/test_upnp.py       # UPnP renderers, against a stub renderer
 ```
 
 They are self-contained: they generate their own audio and use stub services,
@@ -226,8 +267,11 @@ This plugin was mostly created with the help of AI.
 GPL-3.0-or-later; see [`LICENSE`](LICENSE).
 
 The server icons in `plasmoid/package/contents/icons/` come from the upstream
-projects: `kodi.svg` from the [Kodi](https://github.com/xbmc/xbmc) repository,
-`navidrome.png` from the [Navidrome](https://github.com/navidrome/navidrome)
-repository and `mpd.svg` from the [MPD](https://github.com/MusicPlayerDaemon/MPD)
-repository. Kodi is a trademark of the XBMC Foundation, and all logos remain the
-property of their respective owners.
+projects: `emby.svg` from [Emby.Resources](https://github.com/MediaBrowser/Emby.Resources),
+`jellyfin.svg` from [jellyfin-ux](https://github.com/jellyfin/jellyfin-ux)
+(CC BY-SA 4.0), `kodi.svg` from the [Kodi](https://github.com/xbmc/xbmc)
+repository, `lyrion.png` from [lyrion.org](https://lyrion.org), `mpd.svg` from
+the [MPD](https://github.com/MusicPlayerDaemon/MPD) repository and
+`subsonic.png` from [subsonic.org](https://www.subsonic.org). `plex.svg` is the
+Plex chevron, redrawn. Kodi is a trademark of the XBMC Foundation, Plex of
+Plex, Inc., and all logos remain the property of their respective owners.

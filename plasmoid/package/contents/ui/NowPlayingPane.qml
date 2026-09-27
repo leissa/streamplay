@@ -110,6 +110,6 @@ Item {
                             : i18n("No music server is connected")
         explanation: client.linked
             ? i18n("Pick something from the Library tab to get started.")
-            : i18n("Add a Navidrome, Subsonic or Kodi server in the settings.")
+            : i18n("Add a music server in the settings.")
     }
 }

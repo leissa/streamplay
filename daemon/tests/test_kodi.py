@@ -57,7 +57,7 @@ async def test_sink() -> None:
         ended.append(reason)
 
     sink.wire(on_ended, lambda: None)
-    target = StreamTarget(url="http://music/1.flac", source="navidrome")
+    target = StreamTarget(url="http://music/1.flac", source="subsonic")
     track = Track(id="1", title="One", duration=3.0)
 
     async def play() -> None:

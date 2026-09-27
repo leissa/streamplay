@@ -39,6 +39,30 @@ jobs:
         working-directory: daemon
         run: python tests/test_mpd.py
 
+      - name: test_kodi
+        working-directory: daemon
+        run: python tests/test_kodi.py
+
+      - name: test_jellyfin
+        working-directory: daemon
+        run: python tests/test_jellyfin.py
+
+      - name: test_emby
+        working-directory: daemon
+        run: python tests/test_emby.py
+
+      - name: test_plex
+        working-directory: daemon
+        run: python tests/test_plex.py
+
+      - name: test_lyrion
+        working-directory: daemon
+        run: python tests/test_lyrion.py
+
+      - name: test_upnp
+        working-directory: daemon
+        run: python tests/test_upnp.py
+
       - name: Build the store package
         run: ./package.sh
 

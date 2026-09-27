@@ -42,11 +42,15 @@ def slugify(name: str) -> str:
 class Profile(dict):
     """One backend configuration.
 
-    Common: ``id``, ``name``, ``type`` (``subsonic``/``kodi``/``mpd``).
+    Common: ``id``, ``name``, ``type`` (a key of ``backends.BACKEND_TYPES``).
     Subsonic: ``url``, ``username``, ``password``, ``legacyAuth``, ``verifyTls``.
+    Jellyfin, Emby: ``url``, ``username``, ``password``, ``verifyTls``.
+    Plex: ``url``, ``password`` (the X-Plex-Token), ``verifyTls``.
     Kodi: ``host``, ``port``, ``username``, ``password``, ``wsPort``, ``useTls``.
     MPD: ``host``, ``port``, ``password``, ``musicDirectory``, ``socket``.
     ``socket`` replaces host/port and lets MPD reveal ``musicDirectory`` itself.
+    Lyrion: ``host``, ``port``, ``username``, ``password``.
+    UPnP: ``renderers``, device-description URLs for players discovery misses.
     """
 
     @property

@@ -269,6 +269,12 @@ class MpdBackend(Backend):
 
         self.client = MpdConnection(self.host, self.port, self.password,
                                     self.unix_socket, self.name)
+        self._sink: MpdSink | None = None
+
+    def sinks(self) -> list[Sink]:
+        if self._sink is None:
+            self._sink = MpdSink(self)
+        return [self._sink]
 
     async def call(self, *args: Any) -> list[tuple[str, str]]:
         return await self.client.command(*args)

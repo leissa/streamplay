@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-A Plasma 6 widget for self-hosted music libraries (Navidrome/Subsonic, Kodi,
-MPD): a Python user service (`daemon/`) plus a pure-QML applet (`plasmoid/`).
-The split is forced — MPRIS2 and audio playback cannot be driven from QML — and
-it keeps music playing across a plasmashell restart. `README.md` is the
-user-facing description.
+A Plasma 6 widget for self-hosted music libraries (Subsonic, Jellyfin, Emby,
+Plex, Kodi, MPD, Lyrion) and UPnP renderers: a Python user service (`daemon/`) plus a pure-QML applet
+(`plasmoid/`). The split is forced — MPRIS2 and audio playback cannot be driven
+from QML — and it keeps music playing across a plasmashell restart.
+`README.md` is the user-facing description.
 
 ## Commands
 
@@ -14,6 +14,8 @@ python3 tests/test_player.py      # queue, shuffle, repeat, output switching, re
 python3 tests/test_protocol.py    # control protocol, two services connected
 python3 tests/test_mpd.py         # MPD library + output against tests/fake_mpd.py
 python3 tests/test_kodi.py        # Kodi output against scripted notifications
+python3 tests/test_jellyfin.py    # Jellyfin library against a scripted HTTP server
+python3 tests/test_emby.py        # likewise Emby, test_plex.py, test_lyrion.py, test_upnp.py
 
 systemctl --user stop streamplay                  # before running by hand
 PYTHONPATH=daemon python3 -m streamplay -vv       # also --port --host --no-mpris --config
@@ -71,7 +73,8 @@ a module's `qmldir` before using a type not already used here.
 
 ### Libraries, outputs, one queue
 
-- `backends/base.py: Backend` — a library you browse, yielding a `StreamTarget`.
+- `backends/base.py: Backend` — a library you browse, yielding a `StreamTarget`,
+  plus the outputs the service offers (`sinks()`).
 - `backends/base.py: Sink` — somewhere audio comes out. Plays one target,
   reports eof, knows nothing about queues.
 - `player.py: UnifiedPlayer` — owns the only queue, the play order, shuffle and
@@ -80,24 +83,29 @@ a module's `qmldir` before using a type not already used here.
   player: `stream_target(track)`, `scrobble(track, submission)`,
   `unavailable(track, sink)`. The player never imports a backend.
 
-Neither side owns the queue, which is what lets a Navidrome album and a Kodi
+Neither side owns the queue, which is what lets a Subsonic album and a Kodi
 album share one and play through either destination. Do not move queue state
 into a backend or a sink.
 
 `Sink.plays(track)` says whether an output can play a track from that service
-at all; Kodi and MPD accept only their own library. `Hub.unavailable(track,
+at all; Kodi and MPD accept only their own library, Lyrion and UPnP anything
+but MPD's `file://` tracks. `Hub.unavailable(track,
 sink)` folds that together with "the service is not connected" into the one
 reason the player skips the entry over (`_step_over`) and `queue()` hands the
 applet as `unavailable`. `UnifiedPlayer._watch_start` is the net underneath: an
 output that takes a track and then reports nothing playing would otherwise park
 the queue on it for ever.
 
-Kodi and MPD each appear twice, as an independent `*Backend` and `*Sink`. Both
-sinks are handed one track at a time and leave the service's own playlist
-alone. To add another: `BACKEND_TYPES` *and* `PLAYBACK_TYPES` in
-`backends/__init__.py`, a `create_sink` branch, `Sink.plays` and `Sink.source`
-— that last one is how `Hub._drop_source` tears an output down with its library
-without knowing any type names.
+A service's outputs come from `Backend.sinks()`: one for Kodi and MPD, one
+per player for Lyrion, one per renderer for UPnP. A backend whose set changes
+calls `sinks_changed()`, and `Hub._sync_sinks` diffs by id *and identity*, so
+`sinks()` must return the same object for the same device. Every sink is handed
+one track at a time. To add a service: `BACKEND_TYPES` (and `PLAYBACK_TYPES` if
+it has outputs) in `backends/__init__.py`, `sinks()`, `Sink.plays` and
+`Sink.source` — that last one is how `Hub._drop_source` tears the outputs down
+with the service without knowing any type names. UPnP sets `has_library =
+False`, which keeps it out of `Hub.libraries()`, and the applet's
+`Client.libraries`, via `hasLibrary` in `sources`.
 
 ### Gapless handover
 
@@ -105,11 +113,11 @@ without knowing any type names.
 next changes. `MpvSink` appends it to mpv's playlist, so mpv moves on by itself
 with `--prefetch-playlist`, and the player's following `play` of that queue uid
 is adopted rather than reloaded (`_handed_over`). Match on `uid`, not URL:
-Subsonic salts every stream URL. Kodi and MPD ignore the hint.
+Subsonic salts every stream URL. The remote outputs ignore the hint.
 
 ### Telling eof from a user's stop
 
-Neither remote service reports this well.
+No remote service reports this well.
 
 - Kodi: `Player.OnStop` with `end: true` is eof; `KodiSink._expect_stop` marks
   our own stops.
@@ -118,6 +126,34 @@ Neither remote service reports this well.
   (`_note_position`), because a short track can start *and* end between two
   polls. `_changing` covers the inverse case: replacing the queue takes MPD
   through `stop`.
+- Lyrion and UPnP report a bare stop too and reuse MPD's approach
+  (`_near_end`, `_changing`). Lyrion counts a stop while `waitingToPlay` as
+  still playing; UPnP treats a `STOPPED` before the first `PLAYING`, within
+  `START_GRACE` of a play, as buffering.
+
+### Jellyfin specifics
+
+- `connect()` logs in with `AuthenticateByName` and `close()` logs out.
+  Jellyfin revokes any earlier token of the same device id, so each
+  `JellyfinBackend` makes its own; otherwise *Test Connection* would log the
+  live connection out.
+- Scrobbling is `Sessions/Playing` and `Sessions/Playing/Stopped` at the full
+  duration, which is what makes Jellyfin count a play and scrobbler plugins
+  submit it.
+
+### Emby, Plex, Lyrion, UPnP specifics
+
+- `EmbyBackend` is `JellyfinBackend` with Emby's auth headers
+  (`_auth_headers`) and the `/emby` path prefix.
+- Plex keeps its token in `password`, the only secret field. Genres filter by a
+  tag id that differs per section (`_genre_ids`), and `_paged` pages across
+  several music sections as one list.
+- Lyrion has no play history, favourites or descending year sort, so those
+  album sorts fall back to alphabetical.
+- UPnP re-discovers every 60 s and drops a renderer only after
+  `MISSES_BEFORE_DROP` missed rounds, so one lost packet does not pull an
+  output mid-track. Its DIDL-Lite is escaped twice on purpose, as XML and again
+  as a SOAP argument; Sonos and others refuse a URI without it.
 
 ### MPD specifics
 

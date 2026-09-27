@@ -36,15 +36,18 @@ class StreamTarget:
 
 
 class Backend(abc.ABC):
-    """Read-only access to a music library."""
+    """Read-only access to a music library, and whatever outputs the service offers."""
 
-    #: ``subsonic`` / ``kodi`` / ``mpd``; also stamped onto every Track.
+    #: ``subsonic`` / ``jellyfin`` / ``kodi`` / ``mpd`` / ...; also stamped onto every Track.
     kind: str = ""
+    #: False for a service that is only somewhere to play, whose library calls return nothing.
+    has_library: bool = True
 
     def __init__(self, profile: dict[str, Any]) -> None:
         self.profile = profile
         self.source = str(profile.get("id") or self.kind)
         self.name = profile.get("name") or profile.get("id") or self.kind
+        self._on_sinks_changed: Callable[[], None] | None = None
 
     @abc.abstractmethod
     async def connect(self) -> None:
@@ -53,6 +56,17 @@ class Backend(abc.ABC):
     async def close(self) -> None:
         return None
 
+    def sinks(self) -> list[Sink]:
+        """The outputs this service offers right now, each keeping its id across calls."""
+        return []
+
+    def watch_sinks(self, callback: Callable[[], None] | None) -> None:
+        self._on_sinks_changed = callback
+
+    def sinks_changed(self) -> None:
+        """Tell the hub to call :meth:`sinks` again."""
+        if self._on_sinks_changed is not None:
+            self._on_sinks_changed()
 
     @abc.abstractmethod
     async def artists(self) -> list[Artist]: ...

@@ -21,7 +21,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import websockets
 
 from streamplay import backends, hub as hub_module, secretstore
-from streamplay.backends.base import Backend, StreamTarget
+from streamplay.backends.base import Backend, Sink, StreamTarget
 from streamplay.config import Config
 from streamplay.hub import Hub
 from streamplay.models import Album, Artist, Track
@@ -105,6 +105,86 @@ class FakeBackend(Backend):
         return StreamTarget(url=path.as_uri(), source=self.source)
 
 
+class FakeSink(Sink):
+    def __init__(self, source: str, name: str) -> None:
+        super().__init__()
+        self.id, self.name, self.source = f"rooms:{source}:{name}", name, source
+        self.started = self.closed = False
+
+    async def start(self) -> None:
+        self.started = True
+
+    async def close(self) -> None:
+        self.closed = True
+
+    async def play(self, target, track) -> None: ...
+    async def resume(self) -> None: ...
+    async def pause(self) -> None: ...
+    async def stop(self) -> None: ...
+    async def seek(self, position: float) -> None: ...
+    async def set_volume(self, volume: float) -> None: ...
+
+
+class FakeRooms(Backend):
+    """Outputs only, found and lost the way discovery would."""
+
+    kind = "rooms"
+    has_library = False
+
+    def __init__(self, profile: dict[str, Any]) -> None:
+        super().__init__(profile)
+        self.found = {"kitchen": FakeSink(self.source, "kitchen")}
+
+    def find(self, *names: str) -> None:
+        self.found = {n: self.found.get(n) or FakeSink(self.source, n) for n in names}
+        self.sinks_changed()
+
+    def sinks(self) -> list[Sink]:
+        return list(self.found.values())
+
+    async def connect(self) -> None: ...
+    async def artists(self): return []
+    async def artist_albums(self, artist_id): return []
+    async def albums(self, sort="alphabetical", offset=0, limit=100): return []
+    async def album_tracks(self, album_id): return []
+    async def search(self, query, limit=40): return {}
+    async def stream_target(self, track): raise AssertionError("no library")
+
+
+async def test_outputs(hub: Hub) -> None:
+    hub.config.upsert({"id": "rooms", "name": "Rooms", "type": "rooms", "enabled": True})
+    await hub.connect_source("rooms")
+    rooms = hub.sources["rooms"]
+    kitchen = rooms.found["kitchen"]
+    check("an output-only service offers its outputs",
+          kitchen.started and hub.sinks.get(kitchen.id) is kitchen)
+    check("an output-only service says it has no library",
+          [s["hasLibrary"] for s in hub.sources_json() if s["id"] == "rooms"] == [False])
+    check("browsing ignores a service without a library",
+          len(await hub.gather(None, lambda b: b.albums())) == 6)
+
+    await hub.set_output(kitchen.id)
+    rooms.find("attic")
+    await asyncio.sleep(0.1)
+    attic = rooms.found["attic"]
+    check("an output that goes away is closed and dropped",
+          kitchen.closed and kitchen.id not in hub.sinks)
+    check("playback falls back to this computer", hub.player.sink is hub.sinks["local"])
+    check("an output that turns up is started and offered",
+          attic.started and hub.sinks.get(attic.id) is attic)
+
+    hub.config.settings["output"] = "rooms:rooms:study"
+    rooms.find("attic", "study")
+    await asyncio.sleep(0.1)
+    check("the saved output is picked up once it turns up",
+          hub.player.sink is rooms.found["study"])
+    check("an output still offered is left alone", not attic.closed)
+
+    await hub.disconnect_source("rooms")
+    check("disconnecting a service drops all its outputs",
+          not any(s.source == "rooms" for s in hub.sinks.values()))
+
+
 class Applet:
     """The client half of the protocol, as the QML applet speaks it."""
 
@@ -151,6 +231,7 @@ class Applet:
 
 async def main() -> None:
     backends.BACKEND_TYPES["fake"] = FakeBackend
+    backends.BACKEND_TYPES["rooms"] = FakeRooms
     hub_module.SECRETS_RETRY = 0.05
     keyring_up = asyncio.Event()
 
@@ -331,6 +412,7 @@ async def main() -> None:
             check("queue changes were pushed too",
                   len(applet.events_named("queue")) > 0)
 
+        await test_outputs(hub)
         await hub.close()
         serving.cancel()
         await server.close()

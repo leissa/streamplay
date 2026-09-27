@@ -22,26 +22,70 @@ KCM.SimpleKCM {
     property string status: ""
     property bool statusIsError: false
 
+    readonly property var serverTypes: [
+        { type: "subsonic", label: i18n("Subsonic") },
+        { type: "jellyfin", label: i18n("Jellyfin") },
+        { type: "emby",     label: i18n("Emby") },
+        { type: "plex",     label: i18n("Plex") },
+        { type: "kodi",     label: i18n("Kodi") },
+        { type: "mpd",      label: i18n("MPD") },
+        { type: "lyrion",   label: i18n("Lyrion Music Server") },
+        { type: "upnp",     label: i18n("UPnP / DLNA players") },
+    ]
+
     function blankProfile(type) {
         switch (type) {
         case "kodi":
             return { type: "kodi", name: i18n("Kodi"), host: "", port: 8080,
                      wsPort: 9090, username: "", password: "", useTls: false,
                      enabled: true };
+        case "jellyfin":
+        case "emby":
+        case "plex":
+            return { type: type, name: page.serverTypes.find(t => t.type === type).label,
+                     url: "", username: "", password: "", verifyTls: true,
+                     enabled: true };
         case "mpd":
             return { type: "mpd", name: i18n("MPD"), host: "127.0.0.1",
                      port: 6600, password: "", musicDirectory: "",
                      enabled: true };
+        case "lyrion":
+            return { type: "lyrion", name: i18n("Lyrion"), host: "", port: 9000,
+                     username: "", password: "", enabled: true };
+        case "upnp":
+            return { type: "upnp", name: i18n("Network players"), renderers: [],
+                     enabled: true };
         default:
-            return { type: "subsonic", name: i18n("Navidrome"), url: "",
+            return { type: "subsonic", name: i18n("Subsonic"), url: "",
                      username: "", password: "", legacyAuth: false,
                      verifyTls: true, enabled: true };
         }
     }
 
-    /* MPD has no user accounts, and nothing it speaks goes over TLS. */
+    function usesUrl(type) {
+        return ["subsonic", "jellyfin", "emby", "plex"].includes(type);
+    }
+
+    function usesHost(type) {
+        return ["kodi", "mpd", "lyrion"].includes(type);
+    }
+
+    /* MPD has no user accounts, and Plex takes a token instead. */
     function usesLogin(type) {
-        return type === "subsonic" || type === "kodi";
+        return ["subsonic", "jellyfin", "emby", "kodi", "lyrion"].includes(type);
+    }
+
+    function usesTls(type) {
+        return page.usesUrl(type) || type === "kodi";
+    }
+
+    function urlPlaceholder(type) {
+        switch (type) {
+        case "jellyfin": return "https://jellyfin.example.org";
+        case "emby":     return "https://emby.example.org";
+        case "plex":     return "http://192.168.1.20:32400";
+        default:         return "https://music.example.org";
+        }
     }
 
     /* Three ports are configured on this page and they differ only in which
@@ -204,27 +248,34 @@ KCM.SimpleKCM {
                 visible: client.sources.length === 0
                 opacity: 0.7
                 text: i18n("No music servers yet. Add a Subsonic-compatible "
-                         + "server such as Navidrome, a Kodi instance, or MPD.")
+                         + "server, Jellyfin, Emby, Plex, Kodi, MPD, Lyrion "
+                         + "or UPnP players.")
             }
 
             RowLayout {
                 Layout.topMargin: Kirigami.Units.smallSpacing
 
-                Repeater {
-                    model: [
-                        { type: "subsonic",
-                          label: i18n("Add Navidrome / Subsonic…") },
-                        { type: "kodi", label: i18n("Add Kodi…") },
-                        { type: "mpd",  label: i18n("Add MPD…") },
-                    ]
+                QQC2.Button {
+                    id: addButton
+                    icon.name: "list-add"
+                    text: i18n("Add Music Server…")
+                    onClicked: addMenu.popup(addButton, 0, addButton.height)
 
-                    QQC2.Button {
-                        required property var modelData
-                        icon.name: "list-add"
-                        text: modelData.label
-                        onClicked: {
-                            page.draft = page.blankProfile(modelData.type);
-                            page.status = "";
+                    QQC2.Menu {
+                        id: addMenu
+
+                        Repeater {
+                            model: page.serverTypes
+
+                            QQC2.MenuItem {
+                                required property var modelData
+                                text: modelData.label
+                                icon.name: Fmt.serverIcon(modelData.type)
+                                onTriggered: {
+                                    page.draft = page.blankProfile(modelData.type);
+                                    page.status = "";
+                                }
+                            }
                         }
                     }
                 }
@@ -249,13 +300,13 @@ KCM.SimpleKCM {
                     onTextEdited: page.draft.name = text
                 }
 
-                // -- Subsonic ------------------------------------------------
+                // -- Subsonic, Jellyfin, Emby, Plex --------------------------
 
                 QQC2.TextField {
                     Kirigami.FormData.label: i18n("Server address:")
                     Layout.fillWidth: true
-                    visible: page.draft && page.draft.type === "subsonic"
-                    placeholderText: "https://music.example.org"
+                    visible: page.draft && page.usesUrl(page.draft.type)
+                    placeholderText: page.draft ? page.urlPlaceholder(page.draft.type) : ""
                     text: page.draft ? (page.draft.url || "") : ""
                     onTextEdited: page.draft.url = text
                 }
@@ -265,8 +316,7 @@ KCM.SimpleKCM {
                 QQC2.TextField {
                     Kirigami.FormData.label: i18n("Host:")
                     Layout.fillWidth: true
-                    visible: page.draft && (page.draft.type === "kodi"
-                                            || page.draft.type === "mpd")
+                    visible: page.draft && page.usesHost(page.draft.type)
                     placeholderText: page.draft && page.draft.type === "mpd"
                                      ? "127.0.0.1" : "192.168.1.20"
                     text: page.draft ? (page.draft.host || "") : ""
@@ -287,13 +337,14 @@ KCM.SimpleKCM {
                     fallback: 9090
                 }
 
-                // -- MPD -----------------------------------------------------
+                // -- MPD, Lyrion ---------------------------------------------
 
                 PortField {
                     Kirigami.FormData.label: i18n("Port:")
-                    visible: page.draft && page.draft.type === "mpd"
+                    visible: page.draft && (page.draft.type === "mpd"
+                                            || page.draft.type === "lyrion")
                     field: "port"
-                    fallback: 6600
+                    fallback: page.draft && page.draft.type === "lyrion" ? 9000 : 6600
                 }
 
                 ColumnLayout {
@@ -320,6 +371,37 @@ KCM.SimpleKCM {
                     }
                 }
 
+                // -- UPnP ----------------------------------------------------
+
+                ColumnLayout {
+                    Kirigami.FormData.label: i18n("Player addresses:")
+                    Layout.fillWidth: true
+                    visible: page.draft && page.draft.type === "upnp"
+                    spacing: Kirigami.Units.smallSpacing
+
+                    QQC2.TextArea {
+                        Layout.fillWidth: true
+                        placeholderText: "http://192.168.1.30:1400/xml/device_description.xml"
+                        text: page.draft && page.draft.renderers
+                              ? [].concat(page.draft.renderers).join("\n") : ""
+                        onTextChanged: {
+                            if (page.draft && page.draft.type === "upnp") {
+                                page.draft.renderers = text.split(/\s+/).filter(u => u);
+                            }
+                        }
+                    }
+
+                    QQC2.Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        font: Kirigami.Theme.smallFont
+                        opacity: 0.7
+                        text: i18n("Players on this network are found by themselves. "
+                                 + "List a player's description address here only "
+                                 + "if it does not show up.")
+                    }
+                }
+
                 // -- shared --------------------------------------------------
 
                 QQC2.TextField {
@@ -332,12 +414,24 @@ KCM.SimpleKCM {
 
                 Kirigami.PasswordField {
                     id: passwordField
-                    Kirigami.FormData.label: i18n("Password:")
+                    Kirigami.FormData.label: page.draft && page.draft.type === "plex"
+                                             ? i18n("Token:") : i18n("Password:")
                     Layout.fillWidth: true
+                    visible: page.draft && page.draft.type !== "upnp"
                     placeholderText: page.draft && page.draft.hasPassword
                                      ? i18n("Unchanged") : ""
                     text: ""
                     onTextEdited: page.draft.password = text
+                }
+
+                QQC2.Label {
+                    Layout.fillWidth: true
+                    visible: page.draft && page.draft.type === "plex"
+                    wrapMode: Text.WordWrap
+                    font: Kirigami.Theme.smallFont
+                    opacity: 0.7
+                    text: i18n("In Plex Web, open any item, choose Get Info → View XML, "
+                             + "and copy the X-Plex-Token value from the address bar.")
                 }
 
                 QQC2.CheckBox {
@@ -355,7 +449,7 @@ KCM.SimpleKCM {
                 }
 
                 QQC2.CheckBox {
-                    visible: page.draft && page.usesLogin(page.draft.type)
+                    visible: page.draft && page.usesTls(page.draft.type)
                     text: i18n("Check the TLS certificate")
                     checked: page.draft ? page.draft.verifyTls !== false : true
                     onToggled: page.draft.verifyTls = checked
