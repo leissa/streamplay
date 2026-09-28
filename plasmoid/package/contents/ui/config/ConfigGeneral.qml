@@ -23,63 +23,100 @@ KCM.SimpleKCM {
     property bool cfg_showGenres: true
     property bool cfg_showPlaylists: true
     property var cfg_sectionOrder: ["albums", "artists", "genres", "playlists"]
+    property bool cfg_showPlayingTab: true
+    property bool cfg_showQueueTab: true
+    property bool cfg_showLibraryTab: true
+    property bool cfg_showLyricsTab: true
+    property var cfg_tabOrder: ["playing", "queue", "library", "lyrics"]
 
-    readonly property var sectionLabels: ({
-        albums: i18n("Albums"),
-        artists: i18n("Artists"),
-        genres: i18n("Genres"),
-        playlists: i18n("Playlists"),
-    })
+    /* A checkbox per entry, in the stored order, each with buttons to move it. */
+    component OrderedChoice: ColumnLayout {
+        id: choice
 
-    /* The stored order, repaired: duplicates and unknown names dropped, and
-       anything missing appended so every section stays reachable. */
-    readonly property var orderedKeys: {
-        const all = ["albums", "artists", "genres", "playlists"];
-        const out = [];
-        for (const key of cfg_sectionOrder || []) {
-            if (all.indexOf(key) >= 0 && out.indexOf(key) < 0) {
-                out.push(key);
+        /* Key → label and the name of its cfg_ switch, in default order. */
+        // Inline components do not see this file's ids.
+        required property var config
+        required property var entries
+        required property string orderProperty
+        required property string warning
+
+        /* The stored order, repaired: duplicates and unknown names dropped, and
+           anything missing appended so every entry stays reachable. */
+        readonly property var orderedKeys: {
+            const all = Object.keys(entries);
+            const out = [];
+            for (const key of config[orderProperty] || []) {
+                if (all.indexOf(key) >= 0 && out.indexOf(key) < 0) {
+                    out.push(key);
+                }
+            }
+            for (const key of all) {
+                if (out.indexOf(key) < 0) {
+                    out.push(key);
+                }
+            }
+            return out;
+        }
+
+        readonly property bool nothingShown:
+            !orderedKeys.some(key => config[entries[key].flag])
+
+        function move(from, to) {
+            const list = orderedKeys.slice();
+            const moved = list.splice(from, 1)[0];
+            list.splice(to, 0, moved);
+            // A fresh array, so the change is actually noticed.
+            config[orderProperty] = list;
+        }
+
+        Kirigami.FormData.labelAlignment: Qt.AlignTop
+        spacing: 0
+
+        Repeater {
+            model: choice.orderedKeys
+
+            RowLayout {
+                required property string modelData
+                required property int index
+
+                Layout.fillWidth: true
+                spacing: Kirigami.Units.smallSpacing
+
+                QQC2.CheckBox {
+                    text: choice.entries[modelData].label
+                    checked: choice.config[choice.entries[modelData].flag]
+                    onToggled: choice.config[choice.entries[modelData].flag] = checked
+                }
+
+                Item { Layout.fillWidth: true }
+
+                QQC2.ToolButton {
+                    icon.name: "arrow-up"
+                    enabled: index > 0
+                    QQC2.ToolTip.text: i18n("Move up")
+                    QQC2.ToolTip.visible: hovered
+                    onClicked: choice.move(index, index - 1)
+                }
+
+                QQC2.ToolButton {
+                    icon.name: "arrow-down"
+                    enabled: index < choice.orderedKeys.length - 1
+                    QQC2.ToolTip.text: i18n("Move down")
+                    QQC2.ToolTip.visible: hovered
+                    onClicked: choice.move(index, index + 1)
+                }
             }
         }
-        for (const key of all) {
-            if (out.indexOf(key) < 0) {
-                out.push(key);
-            }
-        }
-        return out;
-    }
 
-    readonly property bool nothingShown:
-        !cfg_showAlbums && !cfg_showArtists && !cfg_showGenres
-        && !cfg_showPlaylists
-
-    function isShown(key) {
-        switch (key) {
-        case "albums":    return cfg_showAlbums;
-        case "artists":   return cfg_showArtists;
-        case "genres":    return cfg_showGenres;
-        default:          return cfg_showPlaylists;
+        QQC2.Label {
+            Layout.fillWidth: true
+            Layout.topMargin: Kirigami.Units.smallSpacing
+            wrapMode: Text.WordWrap
+            font: Kirigami.Theme.smallFont
+            visible: choice.nothingShown
+            color: Kirigami.Theme.negativeTextColor
+            text: choice.warning
         }
-    }
-
-    function setShown(key, value) {
-        switch (key) {
-        case "albums":    cfg_showAlbums = value; break;
-        case "artists":   cfg_showArtists = value; break;
-        case "genres":    cfg_showGenres = value; break;
-        default:          cfg_showPlaylists = value; break;
-        }
-    }
-
-    function moveSection(from, to) {
-        if (to < 0 || to >= orderedKeys.length) {
-            return;
-        }
-        const list = orderedKeys.slice();
-        const moved = list.splice(from, 1)[0];
-        list.splice(to, 0, moved);
-        // A fresh array, so the change is actually noticed.
-        cfg_sectionOrder = list;
     }
 
     Kirigami.FormLayout {
@@ -150,6 +187,23 @@ KCM.SimpleKCM {
         }
 
         Item { Kirigami.FormData.isSection: true
+               Kirigami.FormData.label: i18n("Popup") }
+
+        OrderedChoice {
+            Kirigami.FormData.label: i18n("Tabs shown:")
+            config: page
+            orderProperty: "cfg_tabOrder"
+            entries: ({
+                playing: { label: i18n("Playing"), flag: "cfg_showPlayingTab" },
+                queue:   { label: i18n("Queue"),   flag: "cfg_showQueueTab" },
+                library: { label: i18n("Library"), flag: "cfg_showLibraryTab" },
+                lyrics:  { label: i18n("Lyrics"),  flag: "cfg_showLyricsTab" },
+            })
+            warning: i18n("At least one tab has to stay switched on; "
+                        + "Playing will be used otherwise.")
+        }
+
+        Item { Kirigami.FormData.isSection: true
                Kirigami.FormData.label: i18n("Library") }
 
         QQC2.ComboBox {
@@ -182,57 +236,18 @@ KCM.SimpleKCM {
             text: i18n("In Now Playing")
         }
 
-        ColumnLayout {
+        OrderedChoice {
             Kirigami.FormData.label: i18n("Sections shown:")
-            Kirigami.FormData.labelAlignment: Qt.AlignTop
-            spacing: 0
-
-            Repeater {
-                model: page.orderedKeys
-
-                RowLayout {
-                    required property string modelData
-                    required property int index
-
-                    Layout.fillWidth: true
-                    spacing: Kirigami.Units.smallSpacing
-
-                    QQC2.CheckBox {
-                        text: page.sectionLabels[modelData]
-                        checked: page.isShown(modelData)
-                        onToggled: page.setShown(modelData, checked)
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    QQC2.ToolButton {
-                        icon.name: "arrow-up"
-                        enabled: index > 0
-                        QQC2.ToolTip.text: i18n("Move up")
-                        QQC2.ToolTip.visible: hovered
-                        onClicked: page.moveSection(index, index - 1)
-                    }
-
-                    QQC2.ToolButton {
-                        icon.name: "arrow-down"
-                        enabled: index < page.orderedKeys.length - 1
-                        QQC2.ToolTip.text: i18n("Move down")
-                        QQC2.ToolTip.visible: hovered
-                        onClicked: page.moveSection(index, index + 1)
-                    }
-                }
-            }
-
-            QQC2.Label {
-                Layout.fillWidth: true
-                Layout.topMargin: Kirigami.Units.smallSpacing
-                wrapMode: Text.WordWrap
-                font: Kirigami.Theme.smallFont
-                visible: page.nothingShown
-                color: Kirigami.Theme.negativeTextColor
-                text: i18n("At least one section has to stay switched on; "
-                         + "Albums will be used otherwise.")
-            }
+            config: page
+            orderProperty: "cfg_sectionOrder"
+            entries: ({
+                albums:    { label: i18n("Albums"),    flag: "cfg_showAlbums" },
+                artists:   { label: i18n("Artists"),   flag: "cfg_showArtists" },
+                genres:    { label: i18n("Genres"),    flag: "cfg_showGenres" },
+                playlists: { label: i18n("Playlists"), flag: "cfg_showPlaylists" },
+            })
+            warning: i18n("At least one section has to stay switched on; "
+                        + "Albums will be used otherwise.")
         }
     }
 }

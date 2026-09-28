@@ -14,6 +14,7 @@ from .backends import (BACKEND_TYPES, Backend, BackendError, Sink,
                        SourceUnavailable, create_backend)
 from .config import Config
 from .covers import CoverCache
+from .lyrics import LyricsCache
 from .models import Track
 from .mpris import MprisService, art_url
 from .player import UnifiedPlayer
@@ -37,6 +38,7 @@ class Hub:
     def __init__(self, config: Config, enable_mpris: bool = True) -> None:
         self.config = config
         self.covers = CoverCache()
+        self.lyrics = LyricsCache()
 
         self.sources: dict[str, Backend] = {}
         self.source_state: dict[str, dict[str, Any]] = {}

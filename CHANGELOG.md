@@ -4,6 +4,16 @@ All notable changes to Streamplay. Each version is tagged and
 [released on GitHub](https://github.com/leissa/streamplay/releases) with a
 `.plasmoid` package attached.
 
+## Unreleased
+
+### Added
+
+- A Lyrics tab, <kbd>Ctrl</kbd>+<kbd>4</kbd>, with lyrics from LRCLIB or, failing
+  that, lyrics.ovh. Timed lyrics follow the song and a click on a line seeks
+  there. Nothing is looked up unless the tab is open.
+- The popup's tabs can be switched off and reordered in the settings, like the
+  library's sections. <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>4</kbd> follow the order.
+
 ## [1.4.0](https://github.com/leissa/streamplay/releases/tag/v1.4) — 2026-09-29
 
 ### Changed

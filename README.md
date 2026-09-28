@@ -27,6 +27,11 @@ the media keys and the lock screen all control it.
   clear, and jump to any entry.
 - **Browsing.** By album, artist, genre or server-side playlist, plus search
   across every connected service at once.
+- **Lyrics.** Fetched from [LRCLIB](https://lrclib.net), falling back to
+  [lyrics.ovh](https://lyrics.ovh), only while the Lyrics tab is open. Timed
+  lyrics follow the song, and clicking a line jumps there.
+- **Your layout.** The popup's tabs and the library's sections can each be
+  switched off and put in any order.
 - **KDE integration.** MPRIS2 means media keys, Now Playing in the system tray,
   and the volume OSD all work without any extra setup.
 
@@ -36,7 +41,7 @@ With the popup open:
 
 | Key | Action |
 | --- | --- |
-| <kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> | Playing / Queue / Library tab |
+| <kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd> | first to fourth tab; Playing / Queue / Library / Lyrics unless reordered |
 | <kbd>Ctrl</kbd>+<kbd>H</kbd> / <kbd>Ctrl</kbd>+<kbd>L</kbd> | previous / next tab, also while typing in the search field |
 | <kbd>Ctrl</kbd>+<kbd>F</kbd> | search the library, from any tab |
 | <kbd>↓</kbd> / <kbd>↑</kbd>, <kbd>Ctrl</kbd>+<kbd>N</kbd> / <kbd>P</kbd>, <kbd>Ctrl</kbd>+<kbd>J</kbd> / <kbd>K</kbd> | move through the library; from the search field into the results and back |

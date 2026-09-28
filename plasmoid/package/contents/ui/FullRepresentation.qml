@@ -13,6 +13,54 @@ Item {
 
     readonly property var client: root.client
 
+    /* In the order of the panes in the StackLayout. */
+    readonly property var paneKeys: ["playing", "queue", "library", "lyrics"]
+
+    /* The tabs, in the order and selection the user chose. */
+    readonly property var tabList: {
+        const known = {
+            playing: { key: "playing", icon: "media-playback-start",
+                       label: i18nc("@title:tab", "Playing"),
+                       shown: Plasmoid.configuration.showPlayingTab },
+            queue: { key: "queue", icon: "view-media-playlist",
+                     label: i18nc("@title:tab queue of upcoming tracks", "Queue"),
+                     shown: Plasmoid.configuration.showQueueTab },
+            library: { key: "library", icon: "view-media-album-cover",
+                       label: i18nc("@title:tab", "Library"),
+                       shown: Plasmoid.configuration.showLibraryTab },
+            lyrics: { key: "lyrics", icon: "view-media-lyrics",
+                      label: i18nc("@title:tab", "Lyrics"),
+                      shown: Plasmoid.configuration.showLyricsTab },
+        };
+
+        const kept = [];
+        const seen = {};
+        for (const key of Plasmoid.configuration.tabOrder || []) {
+            if (known[key] && !seen[key]) {
+                seen[key] = true;
+                if (known[key].shown) {
+                    kept.push(known[key]);
+                }
+            }
+        }
+        for (const key of paneKeys) {
+            if (!seen[key] && known[key].shown) {
+                kept.push(known[key]);
+            }
+        }
+        return kept.length > 0 ? kept : [known.playing];
+    }
+    readonly property var tabKeys: tabList.map(tab => tab.key)
+
+    /* The tab last chosen; it may since have been switched off. */
+    property string currentKey: tabKeys[0]
+    readonly property string shownKey:
+        tabKeys.indexOf(currentKey) >= 0 ? currentKey : tabKeys[0]
+
+    function showTab(index) {
+        currentKey = tabKeys[Math.max(0, Math.min(tabKeys.length - 1, index))];
+    }
+
     Layout.minimumWidth: Kirigami.Units.gridUnit * 20
     Layout.minimumHeight: Kirigami.Units.gridUnit * 24
     Layout.preferredWidth: Kirigami.Units.gridUnit * 26
@@ -30,71 +78,81 @@ Item {
         PlasmaComponents.TabBar {
             id: tabs
             Layout.fillWidth: true
-            currentIndex: 0
+            visible: full.tabList.length > 1
 
-            PlasmaComponents.TabButton {
-                icon.name: "media-playback-start"
-                text: i18nc("@title:tab", "Playing")
+            Repeater {
+                model: full.tabList
 
-                PlasmaComponents.ToolTip.text: i18nc("@info:tooltip tab and its keyboard shortcut", "%1 (%2)", text, i18nc("@info:shortcut", "Ctrl+1"))
-                PlasmaComponents.ToolTip.visible: hovered
-                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                PlasmaComponents.TabButton {
+                    required property var modelData
+                    required property int index
+
+                    // TabBar's own split, made explicit; rebuilt buttons otherwise loop on implicitWidth.
+                    width: (tabs.availableWidth - (tabs.count - 1) * tabs.spacing) / tabs.count
+                    icon.name: modelData.icon
+                    text: modelData.label
+                    onClicked: full.currentKey = modelData.key
+
+                    PlasmaComponents.ToolTip.text: i18nc("@info:tooltip tab and its keyboard shortcut", "%1 (%2)", text, i18nc("@info:shortcut", "Ctrl+%1", index + 1))
+                    PlasmaComponents.ToolTip.visible: hovered
+                    PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
+                }
             }
-            PlasmaComponents.TabButton {
-                icon.name: "view-media-playlist"
-                text: i18nc("@title:tab queue of upcoming tracks", "Queue")
+        }
 
-                PlasmaComponents.ToolTip.text: i18nc("@info:tooltip tab and its keyboard shortcut", "%1 (%2)", text, i18nc("@info:shortcut", "Ctrl+2"))
-                PlasmaComponents.ToolTip.visible: hovered
-                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-            }
-            PlasmaComponents.TabButton {
-                icon.name: "view-media-album-cover"
-                text: i18nc("@title:tab", "Library")
-
-                PlasmaComponents.ToolTip.text: i18nc("@info:tooltip tab and its keyboard shortcut", "%1 (%2)", text, i18nc("@info:shortcut", "Ctrl+3"))
-                PlasmaComponents.ToolTip.visible: hovered
-                PlasmaComponents.ToolTip.delay: Kirigami.Units.toolTipDelay
-            }
+        // Reasserted whenever the tabs change, which a plain binding would not survive a click.
+        Binding {
+            target: tabs
+            property: "currentIndex"
+            value: full.tabKeys.indexOf(full.shownKey)
         }
 
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: tabs.currentIndex
+            currentIndex: full.paneKeys.indexOf(full.shownKey)
 
             NowPlayingPane {}
             QueuePane {}
             LibraryPane { id: library }
+            LyricsPane {}
         }
 
         Shortcut {
             sequence: "Ctrl+H"
-            onActivated: tabs.currentIndex = Math.max(0, tabs.currentIndex - 1)
+            onActivated: full.showTab(full.tabKeys.indexOf(full.shownKey) - 1)
         }
         Shortcut {
             sequence: "Ctrl+L"
-            onActivated: tabs.currentIndex = Math.min(tabs.count - 1, tabs.currentIndex + 1)
+            onActivated: full.showTab(full.tabKeys.indexOf(full.shownKey) + 1)
         }
         Shortcut {
             sequence: "Ctrl+1"
-            onActivated: tabs.currentIndex = 0
+            enabled: full.tabKeys.length > 0
+            onActivated: full.showTab(0)
         }
         Shortcut {
             sequence: "Ctrl+2"
-            onActivated: tabs.currentIndex = 1
+            enabled: full.tabKeys.length > 1
+            onActivated: full.showTab(1)
         }
         Shortcut {
             sequence: "Ctrl+3"
-            onActivated: tabs.currentIndex = 2
+            enabled: full.tabKeys.length > 2
+            onActivated: full.showTab(2)
+        }
+        Shortcut {
+            sequence: "Ctrl+4"
+            enabled: full.tabKeys.length > 3
+            onActivated: full.showTab(3)
         }
 
         // The search field's own Ctrl+F is live only while it is visible; both at once would be ambiguous.
         Shortcut {
             sequences: [StandardKey.Find]
-            enabled: tabs.currentIndex !== 2
+            enabled: full.shownKey !== "library" && full.tabKeys.indexOf("library") >= 0
             onActivated: {
-                tabs.currentIndex = 2;
+                full.currentKey = "library";
                 Qt.callLater(library.focusSearch);
             }
         }

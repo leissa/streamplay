@@ -16,6 +16,7 @@ python3 tests/test_mpd.py         # MPD library + output against tests/fake_mpd.
 python3 tests/test_kodi.py        # Kodi output against scripted notifications
 python3 tests/test_jellyfin.py    # Jellyfin library against a scripted HTTP server
 python3 tests/test_emby.py        # likewise Emby, test_plex.py, test_lyrion.py, test_upnp.py
+python3 tests/test_lyrics.py      # LRCLIB and lyrics.ovh lookups against a scripted HTTP server
 
 systemctl --user stop streamplay                  # before running by hand
 PYTHONPATH=daemon python3 -m streamplay -vv       # also --port --host --no-mpris --config
@@ -199,6 +200,12 @@ One WebSocket on `127.0.0.1:8760`: `{"id", "method", "params"}` →
 `sources`, `profiles` and `seeked`. The same port serves cover art over plain
 HTTP at `/cover?src=…&id=…&size=…` through `websockets`' `process_request`
 hook, so QML's `Image` can load artwork and the applet holds no credentials.
+
+`lyrics.get` takes title, artist, album and duration rather than a track id,
+because the lookup services know nothing of our ids. `LyricsCache` stores hits
+and misses on disk and asks again about a miss after `MISS_TTL`; a failed
+request is not stored. `LyricsPane` asks only while it is visible, so the
+services hear only about tracks the user wanted lyrics for.
 
 Cover art is normally `Backend.cover_request()`, an HTTP URL `CoverCache`
 fetches in a thread. MPD sends images down the control connection instead, so

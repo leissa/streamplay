@@ -29,6 +29,7 @@ SHOTS=(
     'playing|0|local|BreezeDark|breeze-dark|null'
     'queue|1|local|BreezeDark|breeze-dark|null'
     'library|2|local|BreezeDark|breeze-dark|null'
+    'lyrics|3|local|BreezeDark|breeze-dark|null'
     'album|2|kodi:kodi|BreezeDark|breeze-dark|[{ mode: "albums", title: "" }, { mode: "albumTracks", id: "copper-sky", source: "kodi", title: "Copper Sky" }]'
     'playing-light|0|kodi:kodi|BreezeLight|default|null'
 )
@@ -72,7 +73,8 @@ edits = [
      "    compactRepresentation: CompactRepresentation {}"),
     (ui / "FullRepresentation.qml", "import org.kde.kirigami as Kirigami\n",
      'import org.kde.kirigami as Kirigami\nimport "Shot.js" as Shot\n'),
-    (ui / "FullRepresentation.qml", "            currentIndex: 0", "            currentIndex: Shot.tab"),
+    (ui / "FullRepresentation.qml", "    property string currentKey: tabKeys[0]",
+     "    property string currentKey: tabKeys[Shot.tab]"),
     (ui / "LibraryPane.qml", "import org.kde.kirigami as Kirigami\n",
      'import org.kde.kirigami as Kirigami\nimport "Shot.js" as Shot\n'),
     (ui / "LibraryPane.qml", '    property var stack: [{ mode: "albums", title: "" }]',

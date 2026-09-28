@@ -36,6 +36,21 @@
     <entry name="showTrackNumbersNowPlaying" type="Bool">
       <default>false</default>
     </entry>
+    <entry name="tabOrder" type="StringList">
+      <default>playing,queue,library,lyrics</default>
+    </entry>
+    <entry name="showPlayingTab" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="showQueueTab" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="showLibraryTab" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="showLyricsTab" type="Bool">
+      <default>true</default>
+    </entry>
     <entry name="albumSort" type="String">
       <default>alphabetical</default>
     </entry>

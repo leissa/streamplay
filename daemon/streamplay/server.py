@@ -345,6 +345,14 @@ async def _playlist_tracks(hub: Hub, params: dict) -> Any:
 
 
 
+@method("lyrics.get")
+async def _lyrics_get(hub: Hub, params: dict) -> Any:
+    return await hub.lyrics.fetch(
+        str(params.get("title") or ""), str(params.get("artist") or ""),
+        str(params.get("album") or ""), float(params.get("duration") or 0.0))
+
+
+
 @method("settings.set")
 async def _settings_set(hub: Hub, params: dict) -> Any:
     for key, value in (params.get("settings") or {}).items():

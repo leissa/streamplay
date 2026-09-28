@@ -68,6 +68,26 @@ LIBRARY = [
         ("Gravity Assist", "4:02"), ("Aphelion", "4:26")]),
 ]
 
+# Coastline at 2 AM, around where the demo seeks to.
+LYRICS = [
+    (104.0, "The radio hums a song we used to know"),
+    (108.5, "Every mile marker glowing soft and slow"),
+    (113.0, "You wrote our names across the fogged-up glass"),
+    (117.5, "And let the empty exits drift on past"),
+    (122.0, ""),
+    (126.0, "Coastline at two in the morning"),
+    (130.5, "Salt on the air and the tide coming in"),
+    (135.0, "No one is waiting, no one is calling"),
+    (139.5, "Only the road and the sound of the wind"),
+    (144.0, "Coastline at two in the morning"),
+    (148.5, "Headlights are painting the edge of the sea"),
+    (153.0, "Keep the wheel steady and don't say it's over"),
+    (157.5, "Stay out here tonight with me"),
+    (162.0, ""),
+    (170.0, "The dashboard clock is running out of light"),
+    (174.5, "We're chasing nothing, and it feels so right"),
+]
+
 PLAYLISTS = {
     "subsonic": [("pl-drive", "Late Night Drive", ["night-drive-atlas", "quiet-machines"]),
                   ("pl-focus", "Deep Focus", ["quiet-machines", "concrete-bloom"]),
@@ -239,6 +259,10 @@ async def main(port, output):
 
     hub = Hub(config, enable_mpris=False)
     hub.covers = CoverCache(tmp / "covers")
+
+    async def lyrics(title, artist, album="", duration=0.0):
+        return {"provider": "LRCLIB", "synced": [{"time": t, "text": line} for t, line in LYRICS]}
+    hub.lyrics.fetch = lyrics
     server = ControlServer(hub, port=port)
     serving = asyncio.create_task(server.serve_forever())
     await asyncio.sleep(0.3)
