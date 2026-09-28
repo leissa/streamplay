@@ -14,6 +14,7 @@ Item {
     id: rowItem
 
     property var entry: null
+    property var multiDisc: ({})
     property bool highlighted: false
 
     signal activated()
@@ -83,7 +84,8 @@ Item {
                             return "";
                         }
                         return rowItem.kind === "track"
-                            ? Fmt.numbered(rowItem.item, Plasmoid.configuration.showTrackNumbers)
+                            ? Fmt.numbered(rowItem.item, Plasmoid.configuration.showTrackNumbers,
+                                         rowItem.multiDisc)
                             : (rowItem.item.name || "");
                     }
                 }

@@ -3,6 +3,8 @@
 import QtQuick
 import QtWebSockets
 
+import "Formatting.js" as Fmt
+
 QtObject {
     id: client
 
@@ -19,6 +21,7 @@ QtObject {
                               canNext: false, canPrevious: false,
                               capabilities: ({}) })
     property var queueTracks: []
+    readonly property var queueMultiDisc: Fmt.multiDisc(queueTracks)
     property int queueIndex: -1
     /* Every configured service and whether it is currently reachable. */
     property var sources: []

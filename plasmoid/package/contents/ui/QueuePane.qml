@@ -202,7 +202,8 @@ Item {
                                     elide: Text.ElideRight
                                     maximumLineCount: 1
                                     text: Fmt.numbered(slot.modelData,
-                                                      Plasmoid.configuration.showTrackNumbers)
+                                                      Plasmoid.configuration.showTrackNumbers,
+                                                      client.queueMultiDisc)
                                 }
 
                                 PlasmaExtras.DescriptiveLabel {

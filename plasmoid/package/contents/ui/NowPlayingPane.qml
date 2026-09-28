@@ -67,7 +67,8 @@ Item {
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2
                 elide: Text.ElideRight
-                text: Fmt.numbered(pane.track, Plasmoid.configuration.showTrackNumbersNowPlaying)
+                text: Fmt.numbered(pane.track, Plasmoid.configuration.showTrackNumbersNowPlaying,
+                                    client.queueMultiDisc)
             }
 
             PlasmaComponents.Label {

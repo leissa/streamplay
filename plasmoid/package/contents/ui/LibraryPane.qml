@@ -65,6 +65,8 @@ Item {
     }
 
     property var entries: []
+    readonly property var multiDisc: Fmt.multiDisc(
+        entries.filter(e => e.kind === "track").map(e => e.item))
     property bool loading: false
     // Held back briefly so a fast reply does not flash a spinner.
     property bool busyShown: false
@@ -585,6 +587,7 @@ Item {
 
                     width: list.width
                     entry: modelData
+                    multiDisc: pane.multiDisc
                     highlighted: ListView.isCurrentItem && list.activeFocus
 
                     onActivated: pane.activate(entry)

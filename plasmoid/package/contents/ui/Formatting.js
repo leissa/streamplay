@@ -39,7 +39,29 @@ function subtitle(track) {
     return parts.join(" — ");
 }
 
-function numbered(track, show) {
+function albumKey(track) {
+    return track.source + "\x1f" + (track.albumId || track.album || "");
+}
+
+/* Servers report disc 1 for a single-disc album too, so only a mix of discs shows one is split. */
+function multiDisc(tracks) {
+    const discs = {};
+    const multi = {};
+    for (const track of tracks || []) {
+        if (!track || !track.discNo) {
+            continue;
+        }
+        const key = albumKey(track);
+        if (discs[key] === undefined) {
+            discs[key] = track.discNo;
+        } else if (discs[key] !== track.discNo) {
+            multi[key] = true;
+        }
+    }
+    return multi;
+}
+
+function numbered(track, show, multi) {
     if (!track) {
         return "";
     }
@@ -47,7 +69,8 @@ function numbered(track, show) {
     if (!show || !track.trackNo) {
         return title;
     }
-    const no = track.discNo ? track.discNo + "-" + pad(track.trackNo) : track.trackNo;
+    const no = track.discNo && multi && multi[albumKey(track)]
+        ? track.discNo + "-" + pad(track.trackNo) : track.trackNo;
     return no + ". " + title;
 }
 
