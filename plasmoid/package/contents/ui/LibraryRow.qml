@@ -3,6 +3,7 @@
 import QtQuick
 import QtQuick.Layouts
 
+import org.kde.plasma.plasmoid
 import org.kde.plasma.components as PlasmaComponents
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.kirigami as Kirigami
@@ -81,8 +82,9 @@ Item {
                         if (!rowItem.item) {
                             return "";
                         }
-                        return rowItem.kind === "track" ? (rowItem.item.title || "")
-                                                        : (rowItem.item.name || "");
+                        return rowItem.kind === "track"
+                            ? Fmt.numbered(rowItem.item, Plasmoid.configuration.showTrackNumbers)
+                            : (rowItem.item.name || "");
                     }
                 }
 

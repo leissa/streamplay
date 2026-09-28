@@ -15,6 +15,8 @@ KCM.SimpleKCM {
     property alias cfg_panelTextLength: textLength.value
     property alias cfg_useAlbumArtIcon: albumArtIcon.checked
     property alias cfg_wheelChangesVolume: wheelVolume.checked
+    property alias cfg_showTrackNumbers: trackNumbers.checked
+    property alias cfg_showTrackNumbersNowPlaying: trackNumbersNowPlaying.checked
     property string cfg_albumSort: "alphabetical"
     property bool cfg_showAlbums: true
     property bool cfg_showArtists: true
@@ -167,6 +169,17 @@ KCM.SimpleKCM {
             ]
             onActivated: page.cfg_albumSort = currentValue
             Component.onCompleted: currentIndex = indexOfValue(page.cfg_albumSort)
+        }
+
+        QQC2.CheckBox {
+            id: trackNumbers
+            Kirigami.FormData.label: i18n("Track and disc numbers:")
+            text: i18n("In lists")
+        }
+
+        QQC2.CheckBox {
+            id: trackNumbersNowPlaying
+            text: i18n("In Now Playing")
         }
 
         ColumnLayout {

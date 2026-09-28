@@ -3,6 +3,7 @@
 import QtQuick
 import QtQuick.Layouts
 
+import org.kde.plasma.plasmoid
 import org.kde.plasma.components as PlasmaComponents
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.kirigami as Kirigami
@@ -200,7 +201,8 @@ Item {
                                     Layout.fillWidth: true
                                     elide: Text.ElideRight
                                     maximumLineCount: 1
-                                    text: slot.modelData.title || ""
+                                    text: Fmt.numbered(slot.modelData,
+                                                      Plasmoid.configuration.showTrackNumbers)
                                 }
 
                                 PlasmaExtras.DescriptiveLabel {

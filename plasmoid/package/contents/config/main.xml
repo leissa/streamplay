@@ -30,6 +30,12 @@
     <entry name="wheelChangesVolume" type="Bool">
       <default>true</default>
     </entry>
+    <entry name="showTrackNumbers" type="Bool">
+      <default>false</default>
+    </entry>
+    <entry name="showTrackNumbersNowPlaying" type="Bool">
+      <default>false</default>
+    </entry>
     <entry name="albumSort" type="String">
       <default>alphabetical</default>
     </entry>

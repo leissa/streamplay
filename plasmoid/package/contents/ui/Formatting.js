@@ -2,6 +2,10 @@
 
 /* Shared display helpers. */
 
+function pad(n) {
+    return n < 10 ? "0" + n : "" + n;
+}
+
 function duration(seconds) {
     if (!seconds || seconds < 0 || !isFinite(seconds)) {
         return "0:00";
@@ -10,7 +14,6 @@ function duration(seconds) {
     const hours = Math.floor(total / 3600);
     const minutes = Math.floor((total % 3600) / 60);
     const secs = total % 60;
-    const pad = n => (n < 10 ? "0" + n : "" + n);
     return hours > 0 ? hours + ":" + pad(minutes) + ":" + pad(secs)
                      : minutes + ":" + pad(secs);
 }
@@ -34,6 +37,18 @@ function subtitle(track) {
         parts.push(track.album);
     }
     return parts.join(" — ");
+}
+
+function numbered(track, show) {
+    if (!track) {
+        return "";
+    }
+    const title = track.title || "";
+    if (!show || !track.trackNo) {
+        return title;
+    }
+    const no = track.discNo ? track.discNo + "-" + pad(track.trackNo) : track.trackNo;
+    return no + ". " + title;
 }
 
 /* The icon standing for a kind of music server, used wherever one is listed. */

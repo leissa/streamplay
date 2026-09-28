@@ -3,6 +3,7 @@
 import QtQuick
 import QtQuick.Layouts
 
+import org.kde.plasma.plasmoid
 import org.kde.plasma.components as PlasmaComponents
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.kirigami as Kirigami
@@ -66,7 +67,7 @@ Item {
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2
                 elide: Text.ElideRight
-                text: pane.track ? pane.track.title : ""
+                text: Fmt.numbered(pane.track, Plasmoid.configuration.showTrackNumbersNowPlaying)
             }
 
             PlasmaComponents.Label {
