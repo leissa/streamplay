@@ -4,6 +4,19 @@ All notable changes to Streamplay. Each version is tagged and
 [released on GitHub](https://github.com/leissa/streamplay/releases) with a
 `.plasmoid` package attached.
 
+## [1.4.0](https://github.com/leissa/streamplay/releases/tag/v1.4) — 2026-09-29
+
+### Changed
+
+- The library shows a spinner and dims the list while a search or listing takes
+  longer than a moment. A fast reply no longer flashes it.
+
+### Fixed
+
+- Switching the output while playing starts the track on the new output where
+  it left off, without first playing a moment from the beginning.
+- A slow library reply can no longer overwrite the results of a newer search.
+
 ## [1.3.0](https://github.com/leissa/streamplay/releases/tag/v1.3) — 2026-09-27
 
 ### Added
