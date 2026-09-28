@@ -66,6 +66,9 @@ Item {
 
     property var entries: []
     property bool loading: false
+    // Held back briefly so a fast reply does not flash a spinner.
+    property bool busyShown: false
+    property int _loadSeq: 0
     property string loadError: ""
 
     /* True when the current list is made of tracks we can enqueue wholesale. */
@@ -124,9 +127,20 @@ Item {
         return params;
     }
 
-    function _receive(kind, key) {
+    // Only the latest request may settle the pane; a slow earlier one is dropped.
+    function _latest(handler) {
+        const seq = ++_loadSeq;
         return function (result, error) {
+            if (seq !== pane._loadSeq) {
+                return;
+            }
             pane.loading = false;
+            handler(result, error);
+        };
+    }
+
+    function _receive(kind, key) {
+        return _latest(function (result, error) {
             if (error) {
                 pane.loadError = error;
                 pane.entries = [];
@@ -135,11 +149,13 @@ Item {
             pane.loadError = "";
             const items = (result && result[key]) || [];
             pane.entries = items.map(item => ({ kind: kind, item: item }));
-        };
+        });
     }
 
     function load() {
         if (!client.linked) {
+            ++_loadSeq;
+            loading = false;
             entries = [];
             loadError = "";
             return;
@@ -158,13 +174,12 @@ Item {
                         _receive("album", "albums"));
             break;
         case "genres":
-            client.call("library.genres", _params(), function (result, error) {
-                pane.loading = false;
+            client.call("library.genres", _params(), _latest(function (result, error) {
                 pane.loadError = error || "";
                 const names = (result && result.genres) || [];
                 pane.entries = names.map(name => ({ kind: "genre",
                                                     item: { name: name } }));
-            });
+            }));
             break;
         case "playlists":
             client.call("library.playlists", _params(),
@@ -190,8 +205,7 @@ Item {
             break;
         case "search":
             client.call("library.search", _params({ query: at.query }),
-                        function (result, error) {
-                pane.loading = false;
+                        _latest(function (result, error) {
                 if (error) {
                     pane.loadError = error;
                     pane.entries = [];
@@ -215,7 +229,7 @@ Item {
                     }
                 }
                 pane.entries = built;
-            });
+            }));
             break;
         }
     }
@@ -287,6 +301,16 @@ Item {
         // Reload once a service connects, disconnects, or the daemon restarts.
         function onSourcesChanged() { pane.refresh(); }
         function onReloaded() { pane.refresh(); }
+    }
+
+    onLoadingChanged: if (!loading) {
+        busyShown = false;
+    }
+
+    Timer {
+        interval: 250
+        running: pane.loading
+        onTriggered: pane.busyShown = true
     }
 
     // Retry on the way back in, so a failure while a server was down is not sticky.
@@ -460,6 +484,11 @@ Item {
         PlasmaComponents.ScrollView {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            opacity: pane.busyShown ? 0.4 : 1
+
+            Behavior on opacity {
+                NumberAnimation { duration: Kirigami.Units.shortDuration }
+            }
 
             ListView {
                 id: list
@@ -568,7 +597,7 @@ Item {
 
     PlasmaComponents.BusyIndicator {
         anchors.centerIn: parent
-        running: pane.loading && pane.entries.length === 0
+        running: pane.busyShown
         visible: running
     }
 
