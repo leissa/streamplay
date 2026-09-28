@@ -92,7 +92,7 @@ class UnifiedPlayer:
             log.debug("could not carry the volume over", exc_info=True)
 
         if carry_over and was_playing and self.current is not None:
-            await self._load(self._index, seek_to=position)
+            await self._load(self._index, start=position if position > 1.0 else 0.0)
         else:
             self._status = "stopped"
             self._changed()
@@ -245,7 +245,7 @@ class UnifiedPlayer:
         return None
 
 
-    async def _load(self, index: int, seek_to: float = 0.0) -> None:
+    async def _load(self, index: int, start: float = 0.0) -> None:
         if not (0 <= index < len(self._tracks)):
             await self.stop()
             return
@@ -268,7 +268,7 @@ class UnifiedPlayer:
 
         try:
             target = await self._resolver.stream_target(track)
-            await sink.play(target, track)
+            await sink.play(target, track, start)
         except SourceUnavailable as exc:
             await self._step_over(str(exc))
             return
@@ -290,8 +290,6 @@ class UnifiedPlayer:
 
         self._error_streak = 0
         self._skipped = 0
-        if seek_to > 1.0:
-            await sink.seek(seek_to)
         self._changed()
         self._schedule_preload()
         asyncio.create_task(self._watch_start(self._load_token))

@@ -31,10 +31,12 @@ class FakeKodi:
 
     def __init__(self) -> None:
         self.playing = False
+        self.opened: dict = {}
 
     async def call(self, method: str, params: dict | None = None):
         if method == "Player.Open":
             self.playing = True
+            self.opened = params or {}
         elif method == "Player.Stop":
             self.playing = False
         elif method == "Player.GetActivePlayers":
@@ -100,6 +102,11 @@ async def test_sink() -> None:
     await play()
     await finish()
     check("playing after a stop still reports eof", ended == ["eof"] * 4)
+
+    await sink.play(target, track, start=75.5)
+    check("a carried-over position opens Kodi there",
+          kodi.opened["options"].get("resume")
+          == {"hours": 0, "minutes": 1, "seconds": 15, "milliseconds": 500})
 
 
 async def main() -> None:

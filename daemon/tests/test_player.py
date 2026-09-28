@@ -108,10 +108,10 @@ class FakeSink(Sink):
     def plays(self, track: Track) -> bool:
         return self.own is None or track.source == self.own
 
-    async def play(self, target: StreamTarget, track: Track) -> None:
+    async def play(self, target: StreamTarget, track: Track, start: float = 0.0) -> None:
         self.played.append(track.title)
         self.state.status = "playing"
-        self.state.position = 0.0
+        self.state.position = start
         self.state.duration = track.duration
         self._changed()
 
@@ -140,8 +140,8 @@ class FakeSink(Sink):
 class DeadSink(FakeSink):
     """Takes a track and then reports nothing playing, like Kodi refusing a URL."""
 
-    async def play(self, target: StreamTarget, track: Track) -> None:
-        await super().play(target, track)
+    async def play(self, target: StreamTarget, track: Track, start: float = 0.0) -> None:
+        await super().play(target, track, start)
         self.state.status = "stopped"
         self._changed()
 
@@ -288,6 +288,7 @@ async def main() -> None:
         await player.set_sink(local)
         await asyncio.sleep(0.5)
         check("switching back works", player.state()["output"] == "local")
+        check("mpv picks up mid-track", local.state.position >= 1.0)
 
         orphan = Track(id="1", title="Orphan", duration=3.0,
                        backend="fake", source="not-connected")

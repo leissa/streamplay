@@ -336,7 +336,7 @@ class LyrionSink(PolledSink):
             return ["playlist", "play", target.url, track.title]
         raise BackendError(f"{self.name} can only play its own library and web streams")
 
-    async def play(self, target: StreamTarget, track: Track) -> None:
+    async def play(self, target: StreamTarget, track: Track, start: float = 0.0) -> None:
         command = self._command_for(target, track)
         with self._transition():
             await self.call("power", 1)
@@ -344,7 +344,7 @@ class LyrionSink(PolledSink):
             await self.call("playlist", "shuffle", 0)
             await self.call(*command)
             await self.call("play")
-        await self._started(track)
+        await self._started(track, start)
 
     async def resume(self) -> None:
         await self.call("pause", 0)

@@ -601,7 +601,7 @@ class MpdSink(PolledSink):
                 f"{self.name} can only play its own library and web streams")
         raise BackendError(f"{self.name} cannot play {track.title}")
 
-    async def play(self, target: StreamTarget, track: Track) -> None:
+    async def play(self, target: StreamTarget, track: Track, start: float = 0.0) -> None:
         uri = self._uri_for(target, track)
 
         # Replacing the queue takes MPD through stop.
@@ -612,7 +612,7 @@ class MpdSink(PolledSink):
             await self.backend.call("single", "1")
             await self.backend.call("add", uri)
             await self.backend.call("play")
-        await self._started(track)
+        await self._started(track, start)
 
     async def resume(self) -> None:
         await self.backend.call("pause", "0")

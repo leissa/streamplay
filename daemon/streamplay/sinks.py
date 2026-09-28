@@ -94,14 +94,14 @@ class MpvSink(Sink):
             await self._mpv.start()
             await self._mpv.set_property("volume", round(self.state.volume * 100))
 
-    async def play(self, target: StreamTarget, track: Track) -> None:
+    async def play(self, target: StreamTarget, track: Track, start: float = 0.0) -> None:
         if not target.url:
             raise BackendError(f"Cannot play {track.title} on this computer")
         await self._ensure_running()
 
         handed_over, self._handed_over = self._handed_over, None
         self.state.status = "playing"
-        self.state.position = 0.0
+        self.state.position = start
         self.state.duration = track.duration
         self.state.error = None
         if track.uid and handed_over == track.uid and self._entry is not None:
@@ -112,7 +112,7 @@ class MpvSink(Sink):
         self._next = None
         try:
             await self._mpv.set_property("pause", False)
-            entry = await self._mpv.loadfile(target.url, "replace")
+            entry = await self._mpv.loadfile(target.url, "replace", start=start)
         except MpvError as exc:
             self.state.status = "stopped"
             self.state.error = str(exc)

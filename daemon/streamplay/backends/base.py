@@ -181,7 +181,7 @@ class Sink(abc.ABC):
         return None
 
     @abc.abstractmethod
-    async def play(self, target: StreamTarget, track: Track) -> None: ...
+    async def play(self, target: StreamTarget, track: Track, start: float = 0.0) -> None: ...
 
     @abc.abstractmethod
     async def resume(self) -> None: ...
@@ -282,12 +282,15 @@ class PolledSink(Sink):
         slack = min(self.EOF_SLACK, self.state.duration / 2)
         return position >= self.state.duration - slack
 
-    async def _started(self, track: Track) -> None:
+    async def _started(self, track: Track, start: float = 0.0) -> None:
         self.state.status = "playing"
         self._note_position(0.0)
         self.state.duration = track.duration
         self.state.error = None
-        self._changed()
+        if start > 0:
+            await self.seek(start)
+        else:
+            self._changed()
         await self._sync()
 
     async def _stop_with(self, command: Awaitable[Any]) -> None:

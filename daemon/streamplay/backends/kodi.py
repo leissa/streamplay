@@ -442,7 +442,7 @@ class KodiSink(Sink):
     def plays(self, track: Track) -> bool:
         return track.source == self.backend.source
 
-    async def play(self, target: StreamTarget, track: Track) -> None:
+    async def play(self, target: StreamTarget, track: Track, start: float = 0.0) -> None:
         if target.native and target.source == self.backend.source:
             item = dict(target.native)
         elif target.url:
@@ -451,17 +451,17 @@ class KodiSink(Sink):
             raise BackendError(f"{self.name} cannot play {track.title}")
 
         # We advance the queue ourselves, so Kodi must not do it as well.
+        options: dict[str, Any] = {"repeat": "off", "shuffled": False}
+        if start > 0:
+            options["resume"] = _hms(start)
         self._expect_stop = True
         try:
-            await self.backend.call("Player.Open", {
-                "item": item,
-                "options": {"repeat": "off", "shuffled": False},
-            })
+            await self.backend.call("Player.Open", {"item": item, "options": options})
         except BackendError:
             self._expect_stop = False
             raise
         self.state.status = "playing"
-        self.state.position = 0.0
+        self.state.position = start
         self.state.duration = track.duration
         self.state.error = None
         self._changed()

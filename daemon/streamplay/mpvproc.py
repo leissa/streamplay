@@ -234,6 +234,9 @@ class Mpv:
                 log.exception("mpv %s handler failed for %s", kind, name)
 
     async def command(self, *args: Any, timeout: float = 10.0) -> Any:
+        return await self._send(list(args), args[0], timeout)
+
+    async def _send(self, command: Any, name: str, timeout: float) -> Any:
         if not self.alive:
             raise MpvError("mpv is not running")
         assert self._writer is not None
@@ -243,7 +246,7 @@ class Mpv:
         fut: asyncio.Future = asyncio.get_running_loop().create_future()
         self._pending[request_id] = fut
 
-        payload = json.dumps({"command": list(args), "request_id": request_id})
+        payload = json.dumps({"command": command, "request_id": request_id})
         try:
             self._writer.write(payload.encode("utf-8") + b"\n")
             await self._writer.drain()
@@ -255,7 +258,7 @@ class Mpv:
             return await asyncio.wait_for(fut, timeout)
         except asyncio.TimeoutError as exc:
             self._pending.pop(request_id, None)
-            raise MpvError(f"mpv command timed out: {args[0]}") from exc
+            raise MpvError(f"mpv command timed out: {name}") from exc
 
 
     async def set_property(self, name: str, value: Any) -> None:
@@ -264,9 +267,14 @@ class Mpv:
     async def get_property(self, name: str) -> Any:
         return await self.command("get_property", name)
 
-    async def loadfile(self, url: str, mode: str = "replace") -> int | None:
+    async def loadfile(self, url: str, mode: str = "replace",
+                       start: float = 0.0) -> int | None:
         """Returns the playlist entry id, which mpv before 0.38 does not report."""
-        reply = await self.command("loadfile", url, mode, timeout=30.0)
+        command: dict[str, Any] = {"name": "loadfile", "url": url, "flags": mode}
+        if start > 0:
+            # Named, because mpv 0.38 moved the positional options argument.
+            command["options"] = {"start": f"{start:.3f}"}
+        reply = await self._send(command, "loadfile", timeout=30.0)
         return reply.get("playlist_entry_id") if isinstance(reply, dict) else None
 
     async def stop(self) -> None:

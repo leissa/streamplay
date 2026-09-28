@@ -410,7 +410,7 @@ class UpnpSink(PolledSink):
             f"{escape(url)}</res></item></DIDL-Lite>"
         )
 
-    async def play(self, target: StreamTarget, track: Track) -> None:
+    async def play(self, target: StreamTarget, track: Track, start: float = 0.0) -> None:
         url = target.url or ""
         if not url.startswith(("http://", "https://")):
             raise BackendError(f"{self.name} can only play web streams")
@@ -428,7 +428,7 @@ class UpnpSink(PolledSink):
         self._seen_playing = False
         self._played_at = time.monotonic()
         self.state.buffering = True
-        await self._started(track)
+        await self._started(track, start)
 
     async def resume(self) -> None:
         await self._av("Play", ("Speed", "1"))
