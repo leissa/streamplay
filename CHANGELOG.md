@@ -4,7 +4,7 @@ All notable changes to Streamplay. Each version is tagged and
 [released on GitHub](https://github.com/leissa/streamplay/releases) with a
 `.plasmoid` package attached.
 
-## Unreleased
+## [1.5.0](https://github.com/leissa/streamplay/releases/tag/v1.5) — 2026-09-29
 
 ### Added
 
@@ -17,6 +17,8 @@ All notable changes to Streamplay. Each version is tagged and
   there. Nothing is looked up unless the tab is open.
 - The popup's tabs can be switched off and reordered in the settings, like the
   library's sections. <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>4</kbd> follow the order.
+- Track numbers, in the lists and in Now Playing, each switched on in the
+  settings. The disc number goes in front only for an album of several discs.
 
 ## [1.4.0](https://github.com/leissa/streamplay/releases/tag/v1.4) — 2026-09-29
 

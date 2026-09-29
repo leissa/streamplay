@@ -32,6 +32,7 @@ Browse everything as one library, build a single queue from all of it, and choos
 [*][b]Browse[/b] by album, artist, genre or playlist, and search across every connected server.
 [*][b]Edit the queue.[/b] Play next, add to the end, replace, drag to reorder, remove, shuffle and three repeat modes.
 [*][b]Lyrics[/b] from LRCLIB or lyrics.ovh. Timed lyrics follow the song, and clicking a line jumps there.
+[*][b]Your layout.[/b] Switch off and reorder the popup's tabs and the library's sections, and show track and disc numbers if you like.
 [*][b]Works with the rest of KDE.[/b] Media keys, the Media Player widget, the lock screen and the volume OSD all control it through MPRIS.
 [*][b]Passwords stay in your keyring[/b] (KWallet, GNOME Keyring or KeePassXC via the Secret Service) and never go into a config file.
 [/list]

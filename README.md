@@ -31,7 +31,8 @@ the media keys and the lock screen all control it.
   [lyrics.ovh](https://lyrics.ovh), only while the Lyrics tab is open. Timed
   lyrics follow the song, and clicking a line jumps there.
 - **Your layout.** The popup's tabs and the library's sections can each be
-  switched off and put in any order.
+  switched off and put in any order. Track and disc numbers can be shown in
+  the lists and in Now Playing.
 - **KDE integration.** MPRIS2 means media keys, Now Playing in the system tray,
   and the volume OSD all work without any extra setup.
 
@@ -270,6 +271,7 @@ python3 tests/test_plex.py       # the Plex library, against a stub server
 python3 tests/test_lyrion.py     # the Lyrion library and players, against a stub server
 python3 tests/test_upnp.py       # UPnP renderers, against a stub renderer
 python3 tests/test_youtube.py    # the YouTube library, against stand-ins for ytmusicapi and yt-dlp
+python3 tests/test_lyrics.py     # LRCLIB and lyrics.ovh lookups, against a stub server
 ```
 
 They are self-contained: they generate their own audio and use stub services,
