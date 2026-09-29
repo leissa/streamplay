@@ -31,6 +31,11 @@ DEFAULT_PORT = 8760
 #: Fields that are secret and therefore never leave the daemon in clear text.
 SECRET_FIELDS = ("password",)
 
+#: Profiles every config has, which can be switched off but not removed.
+BUILTIN_PROFILES = {
+    "youtube": {"name": "YouTube Music", "enabled": False},
+}
+
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -51,6 +56,7 @@ class Profile(dict):
     ``socket`` replaces host/port and lets MPD reveal ``musicDirectory`` itself.
     Lyrion: ``host``, ``port``, ``username``, ``password``.
     UPnP: ``renderers``, device-description URLs for players discovery misses.
+    YouTube: nothing; it is built in.
     """
 
     @property
@@ -64,6 +70,10 @@ class Profile(dict):
     @property
     def type(self) -> str:
         return str(self.get("type", "subsonic"))
+
+    @property
+    def builtin(self) -> bool:
+        return self.id in BUILTIN_PROFILES
 
     def redacted(self) -> dict[str, Any]:
         """A copy safe for the applet, with each secret reduced to a ``has<Field>`` flag.
@@ -80,6 +90,9 @@ class Config:
         self.profiles: dict[str, Profile] = {}
         self.settings: dict[str, Any] = {}
         self.load()
+        for pid, defaults in BUILTIN_PROFILES.items():
+            self.profiles[pid] = Profile({**defaults, **self.profiles.get(pid, {}),
+                                          "id": pid, "type": pid})
 
 
     def load(self) -> None:
@@ -166,7 +179,7 @@ class Config:
         return merged
 
     def delete(self, pid: str) -> bool:
-        if pid not in self.profiles:
+        if pid not in self.profiles or self.profiles[pid].builtin:
             return False
         del self.profiles[pid]
         self.save()
@@ -180,5 +193,9 @@ class Config:
         self.settings[key] = value
         self.save()
 
+    def listed(self) -> list[Profile]:
+        """Every profile in the order shown, built-in ones last."""
+        return sorted(self.profiles.values(), key=lambda p: p.builtin)
+
     def redacted_profiles(self) -> list[dict[str, Any]]:
-        return [p.redacted() for p in self.profiles.values()]
+        return [p.redacted() for p in self.listed()]

@@ -64,7 +64,8 @@ class Hub:
 
         await self._ensure_local_sink()
 
-        if self.config.profiles and not await self._load_secrets(warn=True):
+        if (any(not p.builtin for p in self.config.profiles.values())
+                and not await self._load_secrets(warn=True)):
             self._secrets_task = asyncio.create_task(self._retry_secrets())
         await self._connect_enabled()
 
@@ -228,7 +229,8 @@ class Hub:
 
     def sources_json(self) -> list[dict[str, Any]]:
         out = []
-        for profile_id, profile in self.config.profiles.items():
+        for profile in self.config.listed():
+            profile_id = profile.id
             cls = BACKEND_TYPES.get(profile.type, Backend)
             status = self.source_state.get(
                 profile_id, {"state": "disconnected", "message": None})
@@ -241,6 +243,7 @@ class Hub:
                 "message": status.get("message"),
                 "canPlayback": cls.sinks is not Backend.sinks,
                 "hasLibrary": cls.has_library,
+                "builtin": profile.builtin,
             })
         return out
 

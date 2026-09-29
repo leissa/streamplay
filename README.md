@@ -4,8 +4,8 @@
 
 A Plasma 6 widget for self-hosted music libraries. It connects to
 **Subsonic**-compatible servers, **Jellyfin**, **Emby**, **Plex**, **Kodi**,
-**MPD** and **Lyrion Music Server** — several of them at the same time — and
-puts everything into a single shared queue that can be played on this
+**MPD** and **Lyrion Music Server**, and searches **YouTube Music** — several
+of them at the same time — and puts everything into a single shared queue that can be played on this
 computer, on Kodi, MPD or a Squeezebox player, or on any UPnP/DLNA renderer on
 the network. It registers itself with KDE as an MPRIS2 player, so Now Playing,
 the media keys and the lock screen all control it.
@@ -74,6 +74,7 @@ it. That also means music keeps playing if plasmashell is restarted.
 │  │ Kodi      │  UPnP     │  │   one output per renderer
 │  │ MPD       │           │  │
 │  │ Lyrion    │           │  │
+│  │ YouTube   │           │  │
 │  └───────────┴───────────┘  │
 │  MPRIS2 ──────> D-Bus       │
 └─────────────────────────────┘
@@ -98,6 +99,7 @@ Everything below is packaged on Arch and most other distributions:
 | the service | `python`, `python-requests`, `python-websockets`, `python-secretstorage` |
 | local playback | `mpv` |
 | MPRIS (Now Playing, media keys) | `python-dbus`, `python-gobject` |
+| YouTube Music | `python-ytmusicapi`, `yt-dlp` |
 | the widget | `plasma-workspace` (Plasma 6) |
 
 ## Install
@@ -185,6 +187,12 @@ the kind of server.
   network and appear as outputs, and new ones show up within a minute. They
   play anything streamed over HTTP, but not MPD's local files. A player that
   multicast cannot reach can be added by its device-description URL.
+- **YouTube Music** is built in and needs nothing but `ytmusicapi` and
+  `yt-dlp`. It is always listed last, off until you switch it on, and cannot be
+  removed. There is no account and so no collection to browse: its songs, albums and artists turn up
+  in search, and an artist opens onto their albums and singles. yt-dlp finds
+  each track's audio stream when it starts to play. Those stream addresses are
+  tied to this computer's IP address, so a network player may refuse them.
 
 **Test Connection** checks the settings without touching the live connection.
 **Save and Connect** applies them immediately. Each server's switch controls
@@ -261,6 +269,7 @@ python3 tests/test_emby.py       # the Emby library, against a stub server
 python3 tests/test_plex.py       # the Plex library, against a stub server
 python3 tests/test_lyrion.py     # the Lyrion library and players, against a stub server
 python3 tests/test_upnp.py       # UPnP renderers, against a stub renderer
+python3 tests/test_youtube.py    # the YouTube library, against stand-ins for ytmusicapi and yt-dlp
 ```
 
 They are self-contained: they generate their own audio and use stub services,
@@ -293,5 +302,5 @@ projects: `emby.svg` from [Emby.Resources](https://github.com/MediaBrowser/Emby.
 repository, `lyrion.png` from [lyrion.org](https://lyrion.org), `mpd.svg` from
 the [MPD](https://github.com/MusicPlayerDaemon/MPD) repository and
 `subsonic.png` from [subsonic.org](https://www.subsonic.org). `plex.svg` is the
-Plex chevron, redrawn. Kodi is a trademark of the XBMC Foundation, Plex of
-Plex, Inc., and all logos remain the property of their respective owners.
+Plex chevron and `youtube.svg` the YouTube Music mark, both redrawn. Kodi is a
+trademark of the XBMC Foundation, Plex of Plex, Inc., YouTube of Google LLC, and all logos remain the property of their respective owners.

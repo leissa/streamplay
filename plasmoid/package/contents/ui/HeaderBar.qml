@@ -21,7 +21,7 @@ RowLayout {
         if (!client.online) {
             return i18n("The streamplay service is not running");
         }
-        if (client.sources.length === 0) {
+        if (client.usedSources.length === 0) {
             return i18n("No music server has been set up yet");
         }
         const connected = client.connectedSources.length;

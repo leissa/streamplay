@@ -211,6 +211,7 @@ KCM.SimpleKCM {
                             icon.name: "document-edit"
                             display: QQC2.AbstractButton.IconOnly
                             text: i18n("Edit")
+                            visible: !modelData.builtin
                             QQC2.ToolTip.text: text
                             QQC2.ToolTip.visible: hovered
                             onClicked: page.editExisting(modelData.id)
@@ -220,6 +221,7 @@ KCM.SimpleKCM {
                             icon.name: "edit-delete"
                             display: QQC2.AbstractButton.IconOnly
                             text: i18n("Remove")
+                            visible: !modelData.builtin
                             QQC2.ToolTip.text: text
                             QQC2.ToolTip.visible: hovered
                             onClicked: {
@@ -237,7 +239,7 @@ KCM.SimpleKCM {
                 Layout.topMargin: Kirigami.Units.largeSpacing
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
-                visible: client.sources.length === 0
+                visible: client.usedSources.length === 0
                 opacity: 0.7
                 text: i18n("No music servers yet. Add a Subsonic-compatible "
                          + "server, Jellyfin, Emby, Plex, Kodi, MPD, Lyrion "

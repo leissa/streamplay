@@ -120,7 +120,7 @@ Item {
             }
 
             SourceChip {
-                visible: root.client.sources.length > 1 && rowItem.kind !== "genre"
+                visible: root.client.usedSources.length > 1 && rowItem.kind !== "genre"
                 source: rowItem.item ? (rowItem.item.source || "") : ""
             }
 

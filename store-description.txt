@@ -11,6 +11,7 @@ Description:
 [*][b]MPD[/b]
 [*][b]Plex[/b]
 [*][b]Subsonic[/b]-compatible servers: [b]Airsonic[/b], [b]Ampache[/b], [b]Funkwhale[/b], [b]Gonic[/b], [b]LMS[/b], [b]Navidrome[/b]
+[*][b]YouTube Music[/b], searched rather than browsed
 [/list]
 
 Browse everything as one library, build a single queue from all of it, and choose where it plays:
@@ -67,7 +68,7 @@ The service relies on a few common packages from your distribution. Before start
 [*][b]Fedora:[/b] python3-requests python3-websockets python3-secretstorage python3-dbus python3-gobject mpv (mpv comes from RPM Fusion)
 [*][b]openSUSE:[/b] python3-requests python3-websockets python3-SecretStorage python3-dbus-python python3-gobject mpv
 [/list]
-mpv plays the audio on this computer, and python-dbus plus python-gobject provide the media-key and Now Playing integration. Requires Plasma 6.
+mpv plays the audio on this computer, and python-dbus plus python-gobject provide the media-key and Now Playing integration. YouTube Music additionally needs ytmusicapi and yt-dlp. Requires Plasma 6.
 
 [b]Getting started[/b]
 Open the widget's settings, go to [i]Music Servers[/i] and choose [i]Add Music Server…[/i]. [i]Test Connection[/i] checks your settings before you save them. For Kodi, turn on [i]Settings → Services → Control → Allow remote control via HTTP[/i] (and allow control from other systems).

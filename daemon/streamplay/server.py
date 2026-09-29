@@ -97,8 +97,9 @@ async def _profiles_save(hub: Hub, params: dict) -> Any:
 @method("profiles.delete")
 async def _profiles_delete(hub: Hub, params: dict) -> Any:
     profile_id = str(params.get("id") or "")
-    await hub.disconnect_source(profile_id)
     removed = hub.config.delete(profile_id)
+    if removed:
+        await hub.disconnect_source(profile_id)
     _announce_profiles(hub)
     return {"removed": removed}
 

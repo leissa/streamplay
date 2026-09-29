@@ -31,6 +31,8 @@ QtObject {
     property var daemonSettings: ({})
     property var daemonInfo: ({})
 
+    // A switched-off built-in service is not one the user set up.
+    readonly property var usedSources: sources.filter(s => !s.builtin || s.enabled)
     readonly property var connectedSources:
         sources.filter(source => source.state === "connected")
     // UPnP renderers are only outputs.

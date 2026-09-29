@@ -216,7 +216,7 @@ Item {
                             }
 
                             SourceChip {
-                                visible: client.sources.length > 1
+                                visible: client.usedSources.length > 1
                                 source: slot.modelData.source || ""
                             }
 

@@ -15,6 +15,9 @@ dependencies = [
     # (python-dbus, python-gobject) and are only needed for MPRIS.
 ]
 
+[project.optional-dependencies]
+youtube = ["ytmusicapi>=1.8", "yt-dlp"]
+
 [project.urls]
 Homepage = "https://github.com/leissa/streamplay"
 Issues = "https://github.com/leissa/streamplay/issues"

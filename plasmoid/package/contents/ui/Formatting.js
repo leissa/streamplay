@@ -84,6 +84,7 @@ function serverIcon(type) {
     case "mpd":      return Qt.resolvedUrl("../icons/mpd.svg");
     case "plex":     return Qt.resolvedUrl("../icons/plex.svg");
     case "upnp":     return "network-wireless";
+    case "youtube":  return Qt.resolvedUrl("../icons/youtube.svg");
     default:         return Qt.resolvedUrl("../icons/subsonic.png");
     }
 }

@@ -8,6 +8,10 @@ All notable changes to Streamplay. Each version is tagged and
 
 ### Added
 
+- **YouTube Music**, through ytmusicapi and yt-dlp. It is built in, listed
+  last among the servers and off until switched on. With no collection to
+  browse, it joins search: songs, albums and artists, and an artist's albums and
+  singles. Its tracks share the queue and play on any output.
 - A Lyrics tab, <kbd>Ctrl</kbd>+<kbd>4</kbd>, with lyrics from LRCLIB or, failing
   that, lyrics.ovh. Timed lyrics follow the song and a click on a line seeks
   there. Nothing is looked up unless the tab is open.

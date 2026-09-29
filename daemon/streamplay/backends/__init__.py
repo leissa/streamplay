@@ -14,13 +14,14 @@ from .mpd import MpdBackend, MpdSink
 from .plex import PlexBackend
 from .subsonic import SubsonicBackend
 from .upnp import UpnpBackend, UpnpSink
+from .youtube import YouTubeBackend
 
 __all__ = [
     "Backend", "BackendError", "Sink", "SinkState", "SourceUnavailable",
     "StreamTarget",
     "EmbyBackend", "JellyfinBackend", "KodiBackend", "KodiSink",
     "LyrionBackend", "LyrionSink", "MpdBackend", "MpdSink", "PlexBackend",
-    "SubsonicBackend", "UpnpBackend", "UpnpSink",
+    "SubsonicBackend", "UpnpBackend", "UpnpSink", "YouTubeBackend",
     "BACKEND_TYPES", "create_backend",
 ]
 
@@ -33,6 +34,7 @@ BACKEND_TYPES = {
     "mpd": MpdBackend,
     "lyrion": LyrionBackend,
     "upnp": UpnpBackend,
+    "youtube": YouTubeBackend,
 }
 
 

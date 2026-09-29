@@ -282,7 +282,11 @@ async def main() -> None:
             check("hello succeeds", reply["ok"])
             states = {s["id"]: s["state"] for s in snapshot["sources"]}
             check("both services connect at once",
-                  states == {"alpha": "connected", "beta": "connected"})
+                  states == {"alpha": "connected", "beta": "connected",
+                             "youtube": "disconnected"})
+            check("YouTube is built in, off, and listed last",
+                  [(s["id"], s["builtin"], s["enabled"]) for s in snapshot["sources"]][-1]
+                  == ("youtube", True, False))
             check("the local output is offered",
                   any(o["id"] == "local" for o in snapshot["outputs"]))
             check("passwords never reach the applet",
@@ -405,8 +409,16 @@ async def main() -> None:
             check("a server that will not answer is still saved",
                   reply["ok"] and "connectError" in reply["result"])
 
+            check("a new server still goes before the built-in one",
+                  [p["id"] for p in config.redacted_profiles()][-2:]
+                  == ["broken", "youtube"])
+
             reply = await applet.call("profiles.delete", id="broken")
             check("and can be deleted again", reply["result"]["removed"])
+
+            reply = await applet.call("profiles.delete", id="youtube")
+            check("a built-in server cannot be deleted",
+                  not reply["result"]["removed"] and "youtube" in config.profiles)
 
             reply = await applet.call("player.seek", position="not a number")
             check("a bad argument comes back as an error, not a crash",

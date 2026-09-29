@@ -91,7 +91,7 @@ Item {
 
                 SourceChip {
                     source: pane.track ? pane.track.source : ""
-                    visible: client.sources.length > 1
+                    visible: client.usedSources.length > 1
                 }
 
                 PlasmaExtras.DescriptiveLabel {

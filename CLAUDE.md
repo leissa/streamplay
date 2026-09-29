@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 A Plasma 6 widget for self-hosted music libraries (Subsonic, Jellyfin, Emby,
-Plex, Kodi, MPD, Lyrion) and UPnP renderers: a Python user service (`daemon/`) plus a pure-QML applet
+Plex, Kodi, MPD, Lyrion), YouTube Music and UPnP renderers: a Python user service (`daemon/`) plus a pure-QML applet
 (`plasmoid/`). The split is forced — MPRIS2 and audio playback cannot be driven
 from QML — and it keeps music playing across a plasmashell restart.
 `README.md` is the user-facing description.
@@ -16,6 +16,7 @@ python3 tests/test_mpd.py         # MPD library + output against tests/fake_mpd.
 python3 tests/test_kodi.py        # Kodi output against scripted notifications
 python3 tests/test_jellyfin.py    # Jellyfin library against a scripted HTTP server
 python3 tests/test_emby.py        # likewise Emby, test_plex.py, test_lyrion.py, test_upnp.py
+python3 tests/test_youtube.py     # YouTube against stand-ins for ytmusicapi and yt-dlp
 python3 tests/test_lyrics.py      # LRCLIB and lyrics.ovh lookups against a scripted HTTP server
 
 systemctl --user stop streamplay                  # before running by hand
@@ -154,6 +155,22 @@ No remote service reports this well.
   `MISSES_BEFORE_DROP` missed rounds, so one lost packet does not pull an
   output mid-track. Its DIDL-Lite is escaped twice on purpose, as XML and again
   as a SOAP argument; Sonos and others refuse a URI without it.
+
+### YouTube specifics
+
+- A built-in profile (`config.BUILTIN_PROFILES`): `Config` always adds it,
+  off by default, `Config.listed()` puts it last, and `Config.delete` refuses it. `builtin` in
+  `sources` lets the applet hide Edit and Remove and not count it while off
+  (`Client.usedSources`).
+- Anonymous ytmusicapi, so the library is search, `artist_albums` and
+  `album_tracks`; `albums()` and friends stay empty.
+- Both modules are optional: they are not in `check.py`, which would stop the
+  whole daemon, and `connect()` names whichever is missing.
+- `stream_target` runs yt-dlp through one shared `YoutubeDL` and caches the URL
+  until shortly before its `expire` parameter; a resolve under way is shared, so
+  a preload and the play that follows resolve once.
+- `cover_id` is the thumbnail URL itself; `cover_request` fetches only from
+  YouTube's image hosts, since the `/cover` endpoint takes the id from anyone.
 
 ### MPD specifics
 

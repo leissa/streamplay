@@ -63,6 +63,10 @@ jobs:
         working-directory: daemon
         run: python tests/test_upnp.py
 
+      - name: test_youtube
+        working-directory: daemon
+        run: python tests/test_youtube.py
+
       - name: test_lyrics
         working-directory: daemon
         run: python tests/test_lyrics.py
