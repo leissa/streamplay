@@ -48,6 +48,7 @@ class Hub:
         self._subscribers: set[Callable[[str, dict], None]] = set()
         self._mpris = MprisService(self) if enable_mpris else None
         self._lock = asyncio.Lock()
+        self._connecting: dict[str, asyncio.Future] = {}
         self._art_by_key: dict[str, str] = {}
         self._art_pending: set[str] = set()
         self._settings_task: asyncio.Task | None = None
@@ -268,13 +269,29 @@ class Hub:
             profile = self.config.profiles.get(profile_id)
             if profile is None:
                 raise BackendError(f"No music server named {profile_id!r}")
+            # Switched off while this call waited for the lock.
+            if not profile.get("enabled", True):
+                return
 
             await self._drop_source(profile_id)
             self._set_source_state(profile_id, "connecting")
 
             try:
                 backend = create_backend(profile)
-                await backend.connect()
+                connecting = asyncio.ensure_future(backend.connect())
+                self._connecting[profile_id] = connecting
+                try:
+                    await asyncio.wait({connecting})
+                finally:
+                    del self._connecting[profile_id]
+                    connecting.cancel()
+                if connecting.cancelled():
+                    try:
+                        await backend.close()
+                    except Exception:
+                        log.debug("backend shutdown failed", exc_info=True)
+                    return
+                connecting.result()
             except BackendError as exc:
                 self._set_source_state(profile_id, "error", str(exc))
                 raise
@@ -293,6 +310,10 @@ class Hub:
             self.broadcast_queue()
 
     async def disconnect_source(self, profile_id: str) -> None:
+        # An unreachable server would otherwise hold the lock until it times out.
+        connecting = self._connecting.get(profile_id)
+        if connecting is not None:
+            connecting.cancel()
         async with self._lock:
             await self._drop_source(profile_id)
             self._set_source_state(profile_id, "disconnected")

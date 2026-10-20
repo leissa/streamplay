@@ -63,6 +63,8 @@ class FakeBackend(Backend):
         if self.profile.get("failConnect"):
             from streamplay.backends.base import BackendError
             raise BackendError("deliberately unreachable")
+        if self.profile.get("hangConnect"):
+            await asyncio.Event().wait()
 
     def _prefix(self) -> str:
         return self.profile.get("prefix", self.source)
@@ -415,6 +417,29 @@ async def main() -> None:
 
             reply = await applet.call("profiles.delete", id="broken")
             check("and can be deleted again", reply["result"]["removed"])
+
+            config.upsert({"id": "hung", "name": "Hung", "type": "fake",
+                           "hangConnect": True, "enabled": False})
+            connecting = asyncio.create_task(applet.call("sources.connect", id="hung"))
+            await asyncio.sleep(0.2)
+            try:
+                reply = await asyncio.wait_for(applet.call("hello"), 2)
+            except TimeoutError:
+                reply = {"ok": False}
+            check("a server that never answers does not hold up other requests",
+                  reply["ok"])
+            try:
+                reply = await asyncio.wait_for(
+                    applet.call("sources.disconnect", id="hung"), 2)
+                hung = next(s for s in reply["result"]["sources"] if s["id"] == "hung")
+            except TimeoutError:
+                hung = {}
+            check("switching it off abandons the attempt at once",
+                  hung.get("state") == "disconnected" and hung.get("enabled") is False)
+            reply = await asyncio.wait_for(connecting, 2)
+            check("and the abandoned connect still gets its reply",
+                  reply["ok"] and "hung" not in hub.sources)
+            config.delete("hung")
 
             reply = await applet.call("profiles.delete", id="youtube")
             check("a built-in server cannot be deleted",

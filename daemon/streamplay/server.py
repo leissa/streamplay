@@ -22,6 +22,8 @@ log = logging.getLogger(__name__)
 
 Handler = Callable[[Hub, dict[str, Any]], Awaitable[Any]]
 METHODS: dict[str, Handler] = {}
+# These may wait on a slow or unreachable server, so they must not hold up playback controls.
+CONCURRENT = ("library.", "lyrics.", "profiles.", "sources.")
 
 MIME_BY_SUFFIX = {
     ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
@@ -132,6 +134,7 @@ async def _sources_connect(hub: Hub, params: dict) -> Any:
     profile = hub.config.profiles.get(profile_id)
     if profile is not None and not profile.get("enabled", True):
         hub.config.upsert({"id": profile_id, "enabled": True})
+        hub.emit("sources", hub.sources_json())
     await hub.connect_source(profile_id)
     return {"sources": hub.sources_json()}
 
@@ -141,6 +144,7 @@ async def _sources_disconnect(hub: Hub, params: dict) -> Any:
     profile_id = str(params.get("id") or "")
     if params.get("remember", True):
         hub.config.upsert({"id": profile_id, "enabled": False})
+        hub.emit("sources", hub.sources_json())
     await hub.disconnect_source(profile_id)
     return {"sources": hub.sources_json()}
 
@@ -368,6 +372,7 @@ class ControlServer:
         self.host = host
         self.port = port
         self._server = None
+        self._calls: set[asyncio.Task] = set()
 
     async def serve_forever(self) -> None:
         self._server = await serve(
@@ -467,6 +472,15 @@ class ControlServer:
             await self._reply(connection, call_id, error=f"Unknown method {name!r}")
             return
 
+        if name.startswith(CONCURRENT):
+            task = asyncio.create_task(self._call(connection, call_id, name, handler, params))
+            self._calls.add(task)
+            task.add_done_callback(self._calls.discard)
+        else:
+            await self._call(connection, call_id, name, handler, params)
+
+    async def _call(self, connection: ServerConnection, call_id: Any, name: str,
+                    handler: Handler, params: dict) -> None:
         try:
             result = await handler(self.hub, params)
         except BackendError as exc:
